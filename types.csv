@@ -1,5 +1,5 @@
 type,strongAgainst,weakAgainst,No Effect (0×)
-Normal,,,Ghost
+Normal,,"rock, steel",Ghost
 Fire,"grass, bug, ice, steel","fire, water, rock, dragon",
 Water,"fire, ground, rock","water, grass, dragon",
 Grass,"water, ground, rock","fire, grass, poison, flying, bug, dragon, steel",
