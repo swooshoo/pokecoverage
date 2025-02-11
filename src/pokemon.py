@@ -1,6 +1,78 @@
 import csv
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from dash import Dash, dcc, html
+
 from src.types import pokemon_type_checker
-from src.radar import generate_radar  # Import radar chart function
+
+def generate_radar(type1, type2=None):
+    effectiveness_data = {
+        'Normal':   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.5, 0, 1, 1, 0.5, 1],
+        'Fire':     [1, 0.5, 0.5, 1, 2, 2, 1, 1, 1, 1, 1, 2, 0.5, 1, 0.5, 1, 2, 1],
+        'Water':    [1, 2, 0.5, 1, 0.5, 1, 1, 1, 2, 1, 1, 1, 2, 1, 0.5, 1, 1, 1],
+        'Electric': [1, 1, 2, 0.5, 0.5, 1, 1, 1, 0, 2, 1, 1, 1, 1, 0.5, 1, 1, 1],
+        'Grass':    [1, 0.5, 2, 1, 0.5, 1, 1, 0.5, 2, 0.5, 1, 0.5, 2, 1, 0.5, 1, 0.5, 1],
+        'Ice':      [1, 0.5, 0.5, 1, 2, 0.5, 1, 1, 2, 2, 1, 1, 1, 1, 2, 1, 0.5, 1],
+        'Fighting': [2, 1, 1, 1, 1, 2, 1, 0.5, 1, 0.5, 0.5, 0.5, 2, 0, 1, 2, 2, 0.5],
+        'Poison':   [1, 1, 1, 1, 2, 1, 1, 0.5, 0.5, 1, 1, 1, 0.5, 0.5, 1, 1, 0, 2],
+        'Ground':   [1, 2, 1, 2, 0.5, 1, 1, 2, 1, 0, 1, 0.5, 2, 1, 1, 1, 2, 1],
+        'Flying':   [1, 1, 1, 0.5, 2, 1, 2, 1, 1, 1, 1, 2, 0.5, 1, 1, 1, 0.5, 1],
+        'Psychic':  [1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 0.5, 1, 1, 1, 1, 0, 0.5, 1],
+        'Bug':      [1, 0.5, 1, 1, 2, 1, 0.5, 0.5, 1, 0.5, 2, 1, 1, 0.5, 1, 2, 0.5, 0.5],
+        'Rock':     [1, 2, 1, 1, 1, 2, 0.5, 1, 0.5, 2, 1, 2, 1, 1, 1, 1, 0.5, 1],
+        'Ghost':    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 0.5, 1, 1],
+        'Dragon':   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 0.5, 0],
+        'Dark':     [1, 1, 1, 1, 1, 1, 0.5, 1, 1, 1, 2, 1, 1, 2, 1, 0.5, 1, 0.5],
+        'Steel':    [1, 0.5, 0.5, 0.5, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 0.5, 2],
+        'Fairy':    [1, 0.5, 1, 1, 1, 1, 2, 0.5, 1, 1, 1, 1, 1, 1, 2, 2, 0.5, 1]
+    }  
+    types = list(effectiveness_data.keys())  # List of all Pokémon types
+
+    # Create a subplot layout with polar plots
+    fig = make_subplots(
+        rows=1, cols=2 if type2 else 1,
+        subplot_titles=[f"{type1} Type Effectiveness", f"{type2} Type Effectiveness"] if type2 else [f"{type1} Type Effectiveness"],
+        specs=[[{"type": "polar"}, {"type": "polar"}] if type2 else [{"type": "polar"}]]  # This specifies polar plots
+    )
+
+    # First type chart
+    if type1 in effectiveness_data:
+        df1 = pd.DataFrame({
+            "Effectiveness": effectiveness_data[type1] + [effectiveness_data[type1][0]],  # Close the radar
+            "Types": types + [types[0]]  # Close the radar
+        })
+
+        trace1 = go.Scatterpolar(
+            r=df1["Effectiveness"],
+            theta=df1["Types"],
+            fill="toself",
+            name=f"{type1} Type"
+        )
+        fig.add_trace(trace1, row=1, col=1)
+
+    # Second type chart (if applicable)
+    if type2 and type2 in effectiveness_data:
+        df2 = pd.DataFrame({
+            "Effectiveness": effectiveness_data[type2] + [effectiveness_data[type2][0]],  # Close the radar
+            "Types": types + [types[0]]  # Close the radar
+        })
+
+        trace2 = go.Scatterpolar(
+            r=df2["Effectiveness"],
+            theta=df2["Types"],
+            fill="toself",
+            name=f"{type2} Type"
+        )
+        fig.add_trace(trace2, row=1, col=2)
+
+    # Layout settings
+    fig.update_layout(
+        title_text="Pokémon Type Effectiveness Radar",
+        showlegend=True
+    )
+
+    return fig
 
 def pokemon_info(pokedex_number):
     print("Pokemon Info!")
@@ -77,36 +149,3 @@ def format_type_info(type_name, type_info):
     
     output += "\n"
     return output
-
-# Prompt user for input with confirmation
-try:
-    while True:
-        user_input = input("Enter a Pokémon's Pokédex number (1-151): ").strip()
-        
-        if not user_input.isdigit():
-            print("Invalid input. Please enter a number.")
-            continue
-        
-        pokedex_number = int(user_input)
-        pokemon_name, info_output, type1, type2 = pokemon_info(pokedex_number)
-
-        if not pokemon_name:
-            print(info_output)
-            continue  # Ask again if the number is invalid
-
-        confirmation = input(f"You selected {pokemon_name}. Are you sure? (y/n): ").strip().lower()
-        
-        if confirmation == "y":
-            print(info_output)
-            
-            # Generate and display radar chart(s)
-            generate_radar(type1, type2)
-            
-            break
-        elif confirmation == "n":
-            print("Selection canceled. Try again.")
-        else:
-            print("Invalid response. Please enter 'y' or 'n'.")
-        
-except ValueError:
-    print("Invalid input. Please enter a number.")
