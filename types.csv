@@ -1,19 +1,19 @@
-type,strongAgainst,weakAgainst,No Effect (0×)
-Normal,,"rock, steel",Ghost
-Fire,"grass, bug, ice, steel","fire, water, rock, dragon",
-Water,"fire, ground, rock","water, grass, dragon",
-Grass,"water, ground, rock","fire, grass, poison, flying, bug, dragon, steel",
-Electric,"water, flying, ","electric, grass, dragon",ground
-Ice,"grass, ground, flying, dragon","fire, water, ice, steel",
-Fighting,"normal, ice, bug, dark, steel","poison, flying, psychic, bug, fairy",ghost
-Poison,"grass, fairy","poison, ground, rock, ghost",steel
-Ground,"fire, electric, ground, rock, steel","grass, bug",flying
-Flying,"grass, fighting, bug","electric, rock, steel",
-Psychic,"fighting, poison","psychic, steel, ",dark
-Bug,"grass, psychic, dark","fire, fighting, poison, flying, rock, steel, fairy",
-Rock,"fire, ice, flying, bug","fighting, ground, steel",
-Ghost,"flying, ghost, ",dark,
-Dragon,dragon,steel,
-Dark,"psychic, ghost","fighting, dragon, fairy",
-Steel,"ice, rock, fairy","fire, water, electric, dark",
-Fairy,"fighting, dragon, dark","fire, poison, steel",
+Type,Normal,Fire,Water,Grass,Electric,Ice,Fighting,Poison,Ground,Flying,Psychic,Bug,Rock,Ghost,Dragon,Dark,Steel,Fairy
+Normal,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.5,0.0,1.0,1.0,0.5,1.0
+Fire,1.0,0.5,0.5,2.0,1.0,2.0,1.0,1.0,1.0,1.0,1.0,2.0,0.5,1.0,0.5,1.0,2.0,1.0
+Water,1.0,2.0,0.5,0.5,1.0,1.0,1.0,1.0,2.0,1.0,1.0,1.0,2.0,1.0,0.5,1.0,1.0,1.0
+Grass,1.0,0.5,2.0,0.5,1.0,1.0,1.0,0.5,2.0,0.5,1.0,0.5,1.0,1.0,0.5,1.0,0.5,1.0
+Electric,1.0,1.0,2.0,0.5,0.5,1.0,1.0,1.0,0.0,2.0,1.0,1.0,1.0,1.0,0.5,1.0,1.0,1.0
+Ice,1.0,0.5,0.5,2.0,1.0,0.5,1.0,1.0,2.0,2.0,1.0,1.0,1.0,1.0,2.0,1.0,0.5,1.0
+Fighting,2.0,1.0,1.0,1.0,1.0,2.0,1.0,0.5,1.0,0.5,0.5,0.5,2.0,0.0,1.0,2.0,2.0,0.5
+Poison,1.0,1.0,1.0,2.0,1.0,1.0,1.0,0.5,0.5,1.0,1.0,1.0,0.5,0.5,1.0,1.0,0.0,2.0
+Ground,1.0,2.0,1.0,0.5,2.0,1.0,1.0,2.0,1.0,0.0,1.0,0.5,2.0,1.0,1.0,1.0,2.0,1.0
+Flying,1.0,1.0,1.0,2.0,0.5,1.0,2.0,1.0,1.0,1.0,1.0,2.0,0.5,1.0,1.0,1.0,0.5,1.0
+Psychic,1.0,1.0,1.0,1.0,1.0,1.0,2.0,2.0,1.0,1.0,0.5,1.0,1.0,1.0,1.0,0.0,0.5,1.0
+Bug,1.0,0.5,1.0,2.0,1.0,1.0,0.5,0.5,1.0,0.5,2.0,1.0,1.0,0.5,1.0,2.0,0.5,0.5
+Rock,1.0,2.0,1.0,1.0,1.0,2.0,0.5,1.0,0.5,2.0,1.0,2.0,1.0,1.0,1.0,1.0,0.5,1.0
+Ghost,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,2.0,1.0,1.0,2.0,1.0,0.5,1.0,1.0
+Dragon,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,2.0,1.0,0.5,0.0
+Dark,1.0,1.0,1.0,1.0,1.0,1.0,0.5,1.0,1.0,1.0,2.0,1.0,1.0,2.0,1.0,0.5,1.0,0.5
+Steel,1.0,0.5,0.5,1.0,0.5,2.0,1.0,1.0,1.0,1.0,1.0,1.0,2.0,1.0,1.0,1.0,0.5,2.0
+Fairy,1.0,0.5,1.0,1.0,1.0,1.0,2.0,0.5,1.0,1.0,1.0,1.0,1.0,1.0,2.0,2.0,0.5,1.0

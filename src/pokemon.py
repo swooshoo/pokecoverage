@@ -1,78 +1,32 @@
 import csv
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from dash import Dash, dcc, html
 
 from src.types import pokemon_type_checker
 
-def generate_radar(type1, type2=None):
-    effectiveness_data = {
-        'Normal':   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.5, 0, 1, 1, 0.5, 1],
-        'Fire':     [1, 0.5, 0.5, 1, 2, 2, 1, 1, 1, 1, 1, 2, 0.5, 1, 0.5, 1, 2, 1],
-        'Water':    [1, 2, 0.5, 1, 0.5, 1, 1, 1, 2, 1, 1, 1, 2, 1, 0.5, 1, 1, 1],
-        'Electric': [1, 1, 2, 0.5, 0.5, 1, 1, 1, 0, 2, 1, 1, 1, 1, 0.5, 1, 1, 1],
-        'Grass':    [1, 0.5, 2, 1, 0.5, 1, 1, 0.5, 2, 0.5, 1, 0.5, 2, 1, 0.5, 1, 0.5, 1],
-        'Ice':      [1, 0.5, 0.5, 1, 2, 0.5, 1, 1, 2, 2, 1, 1, 1, 1, 2, 1, 0.5, 1],
-        'Fighting': [2, 1, 1, 1, 1, 2, 1, 0.5, 1, 0.5, 0.5, 0.5, 2, 0, 1, 2, 2, 0.5],
-        'Poison':   [1, 1, 1, 1, 2, 1, 1, 0.5, 0.5, 1, 1, 1, 0.5, 0.5, 1, 1, 0, 2],
-        'Ground':   [1, 2, 1, 2, 0.5, 1, 1, 2, 1, 0, 1, 0.5, 2, 1, 1, 1, 2, 1],
-        'Flying':   [1, 1, 1, 0.5, 2, 1, 2, 1, 1, 1, 1, 2, 0.5, 1, 1, 1, 0.5, 1],
-        'Psychic':  [1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 0.5, 1, 1, 1, 1, 0, 0.5, 1],
-        'Bug':      [1, 0.5, 1, 1, 2, 1, 0.5, 0.5, 1, 0.5, 2, 1, 1, 0.5, 1, 2, 0.5, 0.5],
-        'Rock':     [1, 2, 1, 1, 1, 2, 0.5, 1, 0.5, 2, 1, 2, 1, 1, 1, 1, 0.5, 1],
-        'Ghost':    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 0.5, 1, 1],
-        'Dragon':   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 0.5, 0],
-        'Dark':     [1, 1, 1, 1, 1, 1, 0.5, 1, 1, 1, 2, 1, 1, 2, 1, 0.5, 1, 0.5],
-        'Steel':    [1, 0.5, 0.5, 0.5, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 0.5, 2],
-        'Fairy':    [1, 0.5, 1, 1, 1, 1, 2, 0.5, 1, 1, 1, 1, 1, 1, 2, 2, 0.5, 1]
-    }  
-    types = list(effectiveness_data.keys())  # List of all Pokémon types
+# Load the type effectiveness data
+types_df = pd.read_csv("types.csv")
 
-    # Create a subplot layout with polar plots
-    fig = make_subplots(
-        rows=1, cols=2 if type2 else 1,
-        subplot_titles=[f"{type1} Type Effectiveness", f"{type2} Type Effectiveness"] if type2 else [f"{type1} Type Effectiveness"],
-        specs=[[{"type": "polar"}, {"type": "polar"}] if type2 else [{"type": "polar"}]]  # This specifies polar plots
-    )
-
-    # First type chart
-    if type1 in effectiveness_data:
-        df1 = pd.DataFrame({
-            "Effectiveness": effectiveness_data[type1] + [effectiveness_data[type1][0]],  # Close the radar
-            "Types": types + [types[0]]  # Close the radar
-        })
-
-        trace1 = go.Scatterpolar(
-            r=df1["Effectiveness"],
-            theta=df1["Types"],
-            fill="toself",
-            name=f"{type1} Type"
-        )
-        fig.add_trace(trace1, row=1, col=1)
-
-    # Second type chart (if applicable)
-    if type2 and type2 in effectiveness_data:
-        df2 = pd.DataFrame({
-            "Effectiveness": effectiveness_data[type2] + [effectiveness_data[type2][0]],  # Close the radar
-            "Types": types + [types[0]]  # Close the radar
-        })
-
-        trace2 = go.Scatterpolar(
-            r=df2["Effectiveness"],
-            theta=df2["Types"],
-            fill="toself",
-            name=f"{type2} Type"
-        )
-        fig.add_trace(trace2, row=1, col=2)
-
-    # Layout settings
-    fig.update_layout(
-        title_text="Pokémon Type Effectiveness Radar",
-        showlegend=True
-    )
-
-    return fig
+def format_type_info(type_name, type_info):
+    strengths = type_info["strong"]
+    weaknesses = type_info["weak"]
+    no_effects = type_info["no_effect"]
+    
+    output = f"{type_name} is 2x effective against: "
+    output += ", ".join(strengths) if strengths else "None"
+    
+    output += "\n"
+    output += f"{type_name} is 0.5x effective against: "
+    output += ", ".join(weaknesses) if weaknesses else "None"
+    
+    if no_effects:
+        output += "\n"
+        output += f"{type_name} has no effect on: "
+        output += ", ".join(no_effects)
+    
+    output += "\n"
+    return output
 
 def pokemon_info(pokedex_number):
     print("Pokemon Info!")
@@ -130,22 +84,231 @@ def pokemon_info(pokedex_number):
     except ValueError:
         return None, "Error: Invalid Pokédex number format. Please enter a number.", None, None
 
-def format_type_info(type_name, type_info):
-    strengths = type_info["strong"]
-    weaknesses = type_info["weak"]
-    no_effects = type_info["no_effect"]
+def calculate_type_effectiveness(team_data):
+    """
+    Calculate defensive and offensive effectiveness for a team of Pokémon.
     
-    output = f"{type_name} is 2x effective against: "
-    output += ", ".join(strengths) if strengths else "None"
+    Args:
+        team_data: List of dictionaries with Pokémon data (including types)
     
-    output += "\n"
-    output += f"{type_name} is 0.5x effective against: "
-    output += ", ".join(weaknesses) if weaknesses else "None"
+    Returns:
+        tuple: (defensive_metrics, offensive_metrics)
+    """
+    # Load the type effectiveness data
+    types_df = pd.read_csv("types.csv")
     
-    if no_effects:
-        output += "\n"
-        output += f"{type_name} has no effect on: "
-        output += ", ".join(no_effects)
+    # Determine column names dynamically
+    # First column should be "Type" containing the attacking types
+    attacking_col = "Type"
+    # Remaining columns are the defending types
+    defending_types = [col for col in types_df.columns if col != attacking_col]
     
-    output += "\n"
-    return output
+    # Initialize metrics dictionaries for all types
+    all_types = defending_types
+    
+    defensive_metrics = {t: 0 for t in all_types}
+    offensive_metrics = {t: 0 for t in all_types}
+    
+    # For each Pokémon in the team
+    for pokemon in team_data:
+        type1 = pokemon.get('type1')
+        type2 = pokemon.get('type2')
+        
+        # Skip if type1 is None or empty
+        if not type1 or type1 == 'None':
+            continue
+            
+        # Calculate defensive effectiveness (how vulnerable team is to each type)
+        try:
+            # Get type1 defensive multipliers (how effective each type is against this type)
+            # We need to look at the column for this type across all attacking types
+            type1_defense = {}
+            for attacking_type in all_types:
+                # Get how effective 'attacking_type' is against 'type1'
+                type1_defense[attacking_type] = float(types_df.loc[types_df[attacking_col] == attacking_type, type1].iloc[0])
+            
+            # For dual-type Pokémon, calculate combined effectiveness
+            if type2 and type2 != 'None':
+                type2_defense = {}
+                for attacking_type in all_types:
+                    # Get how effective 'attacking_type' is against 'type2'
+                    type2_defense[attacking_type] = float(types_df.loc[types_df[attacking_col] == attacking_type, type2].iloc[0])
+                
+                # Multiply effectiveness values to get combined effectiveness
+                for t in all_types:
+                    combined_value = type1_defense[t] * type2_defense[t]
+                    
+                    # Add weighted value to defensive metrics
+                    # 4x weakness (2), 2x weakness (1), neutral (0), 0.5x resist (-1), 0.25x resist (-2), immune (-3)
+                    if combined_value == 4.0:
+                        defensive_metrics[t] += 2
+                    elif combined_value == 2.0:
+                        defensive_metrics[t] += 1
+                    elif combined_value == 1.0:
+                        defensive_metrics[t] += 0
+                    elif combined_value == 0.5:
+                        defensive_metrics[t] += -1
+                    elif combined_value == 0.25:
+                        defensive_metrics[t] += -2
+                    elif combined_value == 0:
+                        defensive_metrics[t] += -3
+            else:
+                # Single-type Pokémon
+                for t in all_types:
+                    value = type1_defense[t]
+                    if value == 2.0:
+                        defensive_metrics[t] += 1
+                    elif value == 1.0:
+                        defensive_metrics[t] += 0
+                    elif value == 0.5:
+                        defensive_metrics[t] += -1
+                    elif value == 0:
+                        defensive_metrics[t] += -3
+        except Exception as e:
+            print(f"Error processing defensive metrics for {type1}/{type2}: {e}")
+        
+        # Calculate offensive effectiveness (how well this Pokémon hits each type)
+        # Using STAB as a proxy for offensive capability
+        try:
+            # Get types that this Pokémon hits super effectively with STAB from its first type
+            if type1 and type1 != 'None':
+                type1_row = types_df.loc[types_df[attacking_col] == type1].iloc[0]
+                for t in all_types:
+                    value = float(type1_row[t])
+                    if value == 2.0:
+                        offensive_metrics[t] += 1
+                    elif value == 0.5:
+                        offensive_metrics[t] += -1
+                    elif value == 0:
+                        offensive_metrics[t] += -3
+                        
+            # Add STAB coverage from second type if present
+            if type2 and type2 != 'None':
+                type2_row = types_df.loc[types_df[attacking_col] == type2].iloc[0]
+                for t in all_types:
+                    value = float(type2_row[t])
+                    if value == 2.0:
+                        offensive_metrics[t] += 1
+                    elif value == 0.5:
+                        offensive_metrics[t] += -1
+                    elif value == 0:
+                        offensive_metrics[t] += -3
+        except Exception as e:
+            print(f"Error processing offensive metrics for {type1}/{type2}: {e}")
+    
+    return defensive_metrics, offensive_metrics
+
+def calculate_team_kpis(team_data):
+    """
+    Calculate team KPIs based on type effectiveness.
+    
+    Args:
+        team_data: List of dictionaries with Pokémon data
+        
+    Returns:
+        dict: Dictionary of KPI values
+    """
+    # Get raw type effectiveness
+    defensive_metrics, offensive_metrics = calculate_type_effectiveness(team_data)
+    all_types = defensive_metrics.keys()
+    
+    # Calculate defensive KPIs
+    defensive_vulnerability = sum(defensive_metrics.values())
+    
+    # Calculate how many types the team resists
+    types_resisted = sum(1 for v in defensive_metrics.values() if v < 0)
+    team_coverage_score = (types_resisted / len(all_types)) * 100
+    
+    # Count defensive holes (types where 3+ team members are weak)
+    # This is a simplified approximation based on team size and vulnerability score
+    team_size = len(team_data)
+    defensive_holes = sum(1 for v in defensive_metrics.values() if v >= (team_size / 2))
+    
+    # Calculate offensive KPIs
+    # Count types team can hit super effectively
+    super_effective_count = sum(1 for v in offensive_metrics.values() if v > 0)
+    type_coverage_index = (super_effective_count / len(all_types)) * 100
+    
+    # Count unique types in team (for STAB diversity)
+    unique_types = set()
+    for pokemon in team_data:
+        if pokemon.get('type1') and pokemon.get('type1') != 'None':
+            unique_types.add(pokemon.get('type1'))
+        if pokemon.get('type2') and pokemon.get('type2') != 'None':
+            unique_types.add(pokemon.get('type2'))
+    stab_diversity = len(unique_types)
+    
+    return {
+        'defensive_metrics': defensive_metrics,
+        'offensive_metrics': offensive_metrics,
+        'defensive_vulnerability_index': defensive_vulnerability,
+        'team_coverage_score': team_coverage_score,
+        'defensive_holes': defensive_holes,
+        'type_coverage_index': type_coverage_index,
+        'stab_diversity': stab_diversity
+    }
+
+def generate_radar(team_data):
+    """
+    Generate a radar chart for team type effectiveness.
+    
+    Args:
+        team_data: List of dictionaries with Pokémon data
+        
+    Returns:
+        plotly.graph_objects.Figure: Radar chart figure
+    """
+    # Calculate KPIs
+    kpis = calculate_team_kpis(team_data)
+    
+    # Extract metrics for radar chart
+    defensive_metrics = kpis['defensive_metrics']
+    offensive_metrics = kpis['offensive_metrics']
+    
+    # Prepare data for radar chart
+    types = list(defensive_metrics.keys())
+    
+    # Normalize metrics for better visualization
+    max_def = max(abs(v) for v in defensive_metrics.values()) or 1
+    max_off = max(abs(v) for v in offensive_metrics.values()) or 1
+    
+    # Convert metrics to lists with normalized values
+    defensive_values = [defensive_metrics[t] / max_def * 10 for t in types]
+    offensive_values = [offensive_metrics[t] / max_off * 10 for t in types]
+    
+    # Create radar chart
+    fig = go.Figure()
+    
+    # Add defensive trace (lower is better for defense)
+    fig.add_trace(go.Scatterpolar(
+        r=[-v for v in defensive_values],  # Invert values since lower is better for defense
+        theta=types,
+        fill='toself',
+        name='Defensive Effectiveness',
+        line_color='blue',
+        fillcolor='rgba(0, 0, 255, 0.2)'
+    ))
+    
+    # Add offensive trace (higher is better for offense)
+    fig.add_trace(go.Scatterpolar(
+        r=offensive_values,
+        theta=types,
+        fill='toself',
+        name='Offensive Effectiveness',
+        line_color='red',
+        fillcolor='rgba(255, 0, 0, 0.2)'
+    ))
+    
+    # Update layout
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[-10, 10]  # Symmetric range for both metrics
+            )
+        ),
+        title="Team Type Effectiveness",
+        showlegend=True
+    )
+    
+    return fig
