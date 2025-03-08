@@ -200,17 +200,17 @@ def calculate_type_effectiveness(team_data):
 
 def calculate_team_kpis(team_data):
     """
-    Calculate team KPIs based on type effectiveness.
+    Calculate team KPIs based on type effectiveness with specific type recommendations.
     
     Args:
         team_data: List of dictionaries with Pokémon data
         
     Returns:
-        dict: Dictionary of KPI values
+        dict: Dictionary of KPI values and type recommendations
     """
     # Get raw type effectiveness
     defensive_metrics, offensive_metrics = calculate_type_effectiveness(team_data)
-    all_types = defensive_metrics.keys()
+    all_types = list(defensive_metrics.keys())
     
     # Calculate defensive KPIs
     defensive_vulnerability = sum(defensive_metrics.values())
@@ -218,6 +218,10 @@ def calculate_team_kpis(team_data):
     # Calculate how many types the team resists
     types_resisted = sum(1 for v in defensive_metrics.values() if v < 0)
     team_coverage_score = (types_resisted / len(all_types)) * 100
+    
+    # Find types with poor defensive coverage (types team is vulnerable to)
+    vulnerable_types = [t for t in all_types if defensive_metrics[t] > 0]
+    vulnerable_types.sort(key=lambda t: defensive_metrics[t], reverse=True)
     
     # Count defensive holes (types where 3+ team members are weak)
     # This is a simplified approximation based on team size and vulnerability score
@@ -229,6 +233,10 @@ def calculate_team_kpis(team_data):
     super_effective_count = sum(1 for v in offensive_metrics.values() if v > 0)
     type_coverage_index = (super_effective_count / len(all_types)) * 100
     
+    # Find types with poor offensive coverage (types team struggles to hit)
+    offensive_gaps = [t for t in all_types if offensive_metrics[t] <= -1]
+    offensive_gaps.sort(key=lambda t: offensive_metrics[t])
+    
     # Count unique types in team (for STAB diversity)
     unique_types = set()
     for pokemon in team_data:
@@ -238,6 +246,16 @@ def calculate_team_kpis(team_data):
             unique_types.add(pokemon.get('type2'))
     stab_diversity = len(unique_types)
     
+    # Missing types (types not represented in the team)
+    missing_types = set(all_types) - unique_types
+    
+    # Find recommended types to add based on overall analysis
+    # 1. Types that would help address defensive vulnerabilities
+    defensive_recommendations = recommend_types_for_defense(vulnerable_types, defensive_metrics)
+    
+    # 2. Types that would help address offensive gaps
+    offensive_recommendations = recommend_types_for_offense(offensive_gaps, offensive_metrics)
+    
     return {
         'defensive_metrics': defensive_metrics,
         'offensive_metrics': offensive_metrics,
@@ -245,8 +263,80 @@ def calculate_team_kpis(team_data):
         'team_coverage_score': team_coverage_score,
         'defensive_holes': defensive_holes,
         'type_coverage_index': type_coverage_index,
-        'stab_diversity': stab_diversity
+        'stab_diversity': stab_diversity,
+        'vulnerable_types': vulnerable_types[:3],  # Top 3 types team is weak to
+        'offensive_gaps': offensive_gaps[:3],      # Top 3 types team struggles to hit
+        'missing_types': list(missing_types),
+        'defensive_recommendations': defensive_recommendations,
+        'offensive_recommendations': offensive_recommendations
     }
+
+def recommend_types_for_defense(vulnerable_types, defensive_metrics):
+    """
+    Recommend Pokémon types that would help address defensive vulnerabilities.
+    
+    Args:
+        vulnerable_types: List of types the team is vulnerable to
+        defensive_metrics: Dictionary of defensive effectiveness values
+        
+    Returns:
+        list: Recommended types to add for better defense
+    """
+    # Load the type effectiveness data
+    types_df = pd.read_csv("types.csv")
+    
+    # Initialize counters for how well each type defends against vulnerable types
+    type_defense_scores = {t: 0 for t in types_df['Type'].values}
+    
+    # For each vulnerable type, find types that resist it
+    for v_type in vulnerable_types[:3]:  # Focus on top 3 vulnerabilities
+        for def_type in type_defense_scores.keys():
+            # Check how effective the vulnerable type is against this defensive type
+            effectiveness = float(types_df.loc[types_df['Type'] == v_type, def_type].iloc[0])
+            # If this type resists the vulnerable type, increase its score
+            if effectiveness < 1.0:
+                type_defense_scores[def_type] += (1.0 - effectiveness) * 2
+            # If this type is weak to the vulnerable type, decrease its score
+            elif effectiveness > 1.0:
+                type_defense_scores[def_type] -= (effectiveness - 1.0)
+    
+    # Sort types by their defensive utility score
+    recommended_types = sorted(type_defense_scores.items(), key=lambda x: x[1], reverse=True)
+    
+    # Return top 5 recommended types
+    return [t[0] for t in recommended_types[:5]]
+
+def recommend_types_for_offense(offensive_gaps, offensive_metrics):
+    """
+    Recommend Pokémon types that would help address offensive gaps.
+    
+    Args:
+        offensive_gaps: List of types the team struggles to hit effectively
+        offensive_metrics: Dictionary of offensive effectiveness values
+        
+    Returns:
+        list: Recommended types to add for better offense
+    """
+    # Load the type effectiveness data
+    types_df = pd.read_csv("types.csv")
+    
+    # Initialize counters for how well each type attacks the gap types
+    type_offense_scores = {t: 0 for t in types_df['Type'].values}
+    
+    # For each offensive gap, find types that are super effective against it
+    for gap_type in offensive_gaps[:3]:  # Focus on top 3 gaps
+        for atk_type in type_offense_scores.keys():
+            # Check how effective this attacking type is against the gap type
+            effectiveness = float(types_df.loc[types_df['Type'] == atk_type, gap_type].iloc[0])
+            # If this type is super effective against the gap type, increase its score
+            if effectiveness > 1.0:
+                type_offense_scores[atk_type] += (effectiveness - 1.0) * 2
+    
+    # Sort types by their offensive utility score
+    recommended_types = sorted(type_offense_scores.items(), key=lambda x: x[1], reverse=True)
+    
+    # Return top 5 recommended types
+    return [t[0] for t in recommended_types[:5]]
 
 def generate_radar(team_data):
     """

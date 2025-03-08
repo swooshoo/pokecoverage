@@ -58,6 +58,5 @@ def pokemon_type_checker(pokemon_type):
     else:
         return f"'{pokemon_type}' is an invalid Pokémon type."
 
-
 # Example usage:
 print("Types Called!")

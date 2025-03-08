@@ -4,8 +4,14 @@ from dash import Dash, html, dcc, Input, Output, callback, Patch
 import pandas as pd
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
-from src.pokemon import pokemon_info, generate_radar, calculate_team_kpis
 import plotly.graph_objects as go
+
+# Replace this line:
+from src.pokemon import pokemon_info, generate_radar, calculate_team_kpis
+
+# With this:
+from src.pokemon import pokemon_info
+from src.team_analysis import generate_radar, calculate_team_kpis
 
 app = dash.Dash(__name__)
 
@@ -65,6 +71,11 @@ app.layout = html.Div([
         html.Div(id="team-kpi-display", style={'display': 'flex', 'justifyContent': 'space-around', 'marginTop': '20px'})
     ], style={'marginTop': '20px'}),
     
+    html.Div([
+        html.H3("Team Type Recommendations", style={'textAlign': 'center'}),
+        html.Div(id="team-recommendations", style={'marginTop': '20px'})
+    ], style={'marginTop': '30px'}),
+    
     # Individual Pokemon lookup (original functionality)
     html.Div([
         html.H3("Individual Pokémon Lookup", style={'textAlign': 'center'}),
@@ -75,13 +86,16 @@ app.layout = html.Div([
 
 # Callback to update radar chart based on selected Pokemon
 @app.callback(
-    [Output("radar-chart", "figure"), Output("team-kpi-display", "children")],
+    [Output("radar-chart", "figure"), 
+     Output("team-kpi-display", "children"),
+     Output("team-recommendations", "children")],  # 3 outputs declared
     [Input("row-selection-checkbox-header-filtered-only", "selectedRows")]
 )
 def update_team_analysis(selected_rows):
     if not selected_rows or len(selected_rows) == 0:
         # Return empty figure and message if no Pokémon selected
-        return {}, html.Div("Select Pokémon to see team metrics")
+        return {}, html.Div("Select Pokémon to see team metrics"), html.Div("Select Pokémon to see type recommendations")
+    
     
     # Limit to maximum 6 Pokémon (standard team size)
     team_data = selected_rows[:6]
@@ -103,7 +117,7 @@ def update_team_analysis(selected_rows):
         html.Div([
             html.H4("Defensive Holes"),
             html.H2(f"{kpis['defensive_holes']}"),
-            html.P("Types that many team members are weak to")
+            html.P("Types that team is weak to")
         ], style={'textAlign': 'center', 'padding': '10px', 'backgroundColor': '#fff1f0', 'borderRadius': '5px', 'width': '22%'}),
         
         html.Div([
@@ -118,8 +132,79 @@ def update_team_analysis(selected_rows):
             html.P("Unique types in your team's composition")
         ], style={'textAlign': 'center', 'padding': '10px', 'backgroundColor': '#fff8f0', 'borderRadius': '5px', 'width': '22%'})
     ]
+
+    # Create recommendation cards
+    recommendation_cards = html.Div([
+        # First card: vulnerabilities
+        html.Div([
+            html.H4("Team Vulnerabilities", style={'color': '#cf1322'}),
+            html.P("Your team is most vulnerable to these types:"),
+            html.Div([
+                html.Span(type_name, style={
+                    'display': 'inline-block',
+                    'margin': '5px',
+                    'padding': '5px 10px',
+                    'backgroundColor': '#ffccc7',
+                    'borderRadius': '15px',
+                    'color': '#cf1322'
+                }) for type_name in kpis.get('vulnerable_types', [])
+            ])
+        ], style={'width': '30%', 'padding': '15px', 'borderRadius': '10px', 'boxShadow': '0 2px 8px rgba(0,0,0,0.1)'}),
+        
+        # Second card: offensive gaps
+        html.Div([
+            html.H4("Offensive Gaps", style={'color': '#d46b08'}),
+            html.P("Your team struggles to hit these types:"),
+            html.Div([
+                html.Span(type_name, style={
+                    'display': 'inline-block',
+                    'margin': '5px',
+                    'padding': '5px 10px',
+                    'backgroundColor': '#ffe7ba',
+                    'borderRadius': '15px',
+                    'color': '#d46b08'
+                }) for type_name in kpis.get('offensive_gaps', [])
+            ])
+        ], style={'width': '30%', 'padding': '15px', 'borderRadius': '10px', 'boxShadow': '0 2px 8px rgba(0,0,0,0.1)'}),
+        
+        # Third card: recommended types
+        html.Div([
+            html.H4("Recommended Types", style={'color': '#1890ff'}),
+            html.P("Add Pokémon with these types to improve your team:"),
+            html.Div([
+                # Defensive recommendations
+                html.Div([
+                    html.H5("For Defense:", style={'margin': '5px 0'}),
+                    html.Div([
+                        html.Span(type_name, style={
+                            'display': 'inline-block',
+                            'margin': '3px',
+                            'padding': '5px 10px',
+                            'backgroundColor': '#e6f7ff',
+                            'borderRadius': '15px',
+                            'color': '#1890ff'
+                        }) for type_name in kpis.get('defensive_recommendations', [])[:3]
+                    ])
+                ]),
+                # Offensive recommendations
+                html.Div([
+                    html.H5("For Offense:", style={'margin': '5px 0'}),
+                    html.Div([
+                        html.Span(type_name, style={
+                            'display': 'inline-block',
+                            'margin': '3px',
+                            'padding': '5px 10px',
+                            'backgroundColor': '#f6ffed',
+                            'borderRadius': '15px',
+                            'color': '#52c41a'
+                        }) for type_name in kpis.get('offensive_recommendations', [])[:3]
+                    ])
+                ])
+            ])
+        ], style={'width': '30%', 'padding': '15px', 'borderRadius': '10px', 'boxShadow': '0 2px 8px rgba(0,0,0,0.1)'})
+        ], style={'display': 'flex', 'justifyContent': 'space-between', 'marginTop': '20px'})
     
-    return radar_fig, kpi_cards
+    return radar_fig, kpi_cards, recommendation_cards
 
 # Callback to filter Pokemon list
 @app.callback(
