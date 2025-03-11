@@ -6,12 +6,8 @@ from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
 
-# Replace this line:
-from src.pokemon import pokemon_info, generate_radar, calculate_team_kpis
-
-# With this:
-from src.pokemon import pokemon_info
-from src.team_analysis import generate_radar, calculate_team_kpis
+from src.pokemon_analysis import PokemonData, TeamAnalysis, TeamVisualization
+from src.pokemon_analysis import calculate_team_kpis, generate_radar, pokemon_info
 
 app = dash.Dash(__name__)
 
