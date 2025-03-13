@@ -7,7 +7,7 @@ from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
 
 from src.pokemon_analysis import PokemonData, TeamAnalysis, TeamVisualization
-from src.pokemon_analysis import calculate_team_kpis, generate_radar, pokemon_info
+from src.pokemon_analysis import calculate_team_kpis, generate_radar, pokemon_info, generate_bar
 
 app = dash.Dash(__name__)
 
@@ -100,6 +100,7 @@ def update_team_analysis(selected_rows):
     kpis = calculate_team_kpis(team_data)
     
     # Generate radar chart for the selected team
+    bar_fig = generate_bar(team_data) #unused bar fig for offensive/defensive type effectiveness
     radar_fig = generate_radar(team_data)
     
     # Create KPI cards

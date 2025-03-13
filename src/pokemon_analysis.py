@@ -526,3 +526,6 @@ def recommend_types_for_offense(offensive_gaps, offensive_metrics, types_csv_pat
 def generate_radar(team_data, types_csv_path="types.csv"):
     """Backwards compatibility wrapper for TeamVisualization.generate_radar_chart"""
     return TeamVisualization.generate_radar_chart(team_data, types_csv_path)
+
+def generate_bar(team_data, types_csv_path = "types.csv"):
+    return TeamVisualization.generate_bar_chart(team_data,types_csv_path="types.csv")
