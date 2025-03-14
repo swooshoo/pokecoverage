@@ -410,8 +410,8 @@ class TeamVisualization:
         max_off = max(abs(v) for v in offensive_metrics.values()) or 1
         
         # Convert metrics to lists with normalized values
-        defensive_values = [defensive_metrics[t] / max_def * 10 for t in types]
-        offensive_values = [offensive_metrics[t] / max_off * 10 for t in types]
+        defensive_values = [defensive_metrics[t] / max_def for t in types]
+        offensive_values = [offensive_metrics[t] / max_off for t in types]
         
         # Create radar chart
         fig = go.Figure()
@@ -441,7 +441,9 @@ class TeamVisualization:
             polar=dict(
                 radialaxis=dict(
                     visible=True,
-                    range=[-10, 10]  # Symmetric range for both metrics
+                    range=[-1.5, 1.5],  # Adjusted range to accommodate normalized values
+                    tickvals=[-1, -0.5, 0, 0.5, 1],  # Normalized position values for ticks
+                    ticktext=["0.25×", "0.5×", "1×", "2×", "4×"],  # Keep the meaningful labels
                 )
             ),
             title="Team Type Effectiveness",
