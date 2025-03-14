@@ -422,8 +422,8 @@ class TeamVisualization:
             theta=types,
             fill='toself',
             name='Defensive Effectiveness',
-            line_color='blue',
-            fillcolor='rgba(0, 0, 255, 0.2)'
+            line_color='#0D92F4',
+            fillcolor='rgba(13, 146, 244, .2)'
         ))
         
         # Add offensive trace (higher is better for offense)
@@ -432,8 +432,8 @@ class TeamVisualization:
             theta=types,
             fill='toself',
             name='Offensive Effectiveness',
-            line_color='red',
-            fillcolor='rgba(255, 0, 0, 0.2)'
+            line_color='#C62E2E',
+            fillcolor='rgba(249, 84, 84, .2)'
         ))
         
         # Update layout
@@ -446,7 +446,6 @@ class TeamVisualization:
                     ticktext=["0.25×", "0.5×", "1×", "2×", "4×"],  # Keep the meaningful labels
                 )
             ),
-            title="Team Type Effectiveness",
             showlegend=True
         )
         

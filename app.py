@@ -19,9 +19,7 @@ newColDefs = [
     {"field": "pokedex"},
     {
         "field": "pokemon",
-        "checkboxSelection": True,
         "headerCheckboxSelection": True,
-        "headerCheckboxSelectionFilteredOnly": True,
     },
     {"field": "type1"},
     {"field": "type2"},
@@ -37,7 +35,7 @@ def get_pokemon_data(pokedex_number):
 
 # Dash app layout
 app.layout = html.Div([
-    html.H1("Pokémon Team Analysis Tool", style={'textAlign': 'center'}),
+    html.H1("Pokémon Team Diagnostic", style={'textAlign': 'center'}),
     
     html.Div([
         html.Div([
@@ -52,13 +50,14 @@ app.layout = html.Div([
                 columnSize="sizeToFit",
                 defaultColDef={"filter": True},
                 dashGridOptions={"rowSelection": "multiple", "animateRows": False, "rowMultiSelectWithClick" : True},
-                style={'height': '400px', 'width': '100%'}
+                rowStyle= {"cursor": "pointer"},
+                style={'height': '450px', 'width': '100%'}
             ),
         ], style={'width': '48%', 'display': 'inline-block', 'verticalAlign': 'top'}),
         
         html.Div([
             html.H3("Team Type Effectiveness"),
-            dcc.Graph(id="radar-chart", style={'height': '400px'}),
+            dcc.Graph(id="radar-chart", style={'height': '450px'}),
         ], style={'width': '48%', 'float': 'right', 'display': 'inline-block'}),
     ]),
     
@@ -69,13 +68,13 @@ app.layout = html.Div([
     
     html.Div([
         html.H3("Team Type Recommendations", style={'textAlign': 'center'}),
-        html.Div(id="team-recommendations", style={'marginTop': '20px'})
+        html.Div(id="team-recommendations", style={'display': 'flex', 'justifyContent': 'space-around', 'marginTop': '20px'})
     ], style={'marginTop': '30px'}),
     
     # Individual Pokemon lookup (original functionality)
     html.Div([
         html.H3("Individual Pokémon Lookup", style={'textAlign': 'center'}),
-        dcc.Input(id="pokemon-input", type="number", placeholder="Enter Pokédex number"),
+        dcc.Input(id="pokemon-input", type="number", placeholder="Enter Pokédex #"),
         html.Div(id="pokemon-info"),
     ], style={'marginTop': '30px', 'textAlign': 'center'}),
 ], style={'padding': '20px'})
@@ -134,7 +133,7 @@ def update_team_analysis(selected_rows):
     recommendation_cards = html.Div([
         # First card: vulnerabilities
         html.Div([
-            html.H4("Team Vulnerabilities", style={'color': '#cf1322'}),
+            html.H4("Defensive Holes", style={'color': '#cf1322'}),
             html.P("Your team is most vulnerable to these types:"),
             html.Div([
                 html.Span(type_name, style={
@@ -150,7 +149,7 @@ def update_team_analysis(selected_rows):
         
         # Second card: offensive gaps
         html.Div([
-            html.H4("Offensive Gaps", style={'color': '#d46b08'}),
+            html.H4("Offensive Holes", style={'color': '#d46b08'}),
             html.P("Your team struggles to hit these types:"),
             html.Div([
                 html.Span(type_name, style={
