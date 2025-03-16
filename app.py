@@ -7,7 +7,7 @@ from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
 
 from src.pokemon_analysis import PokemonData, TeamAnalysis, TeamVisualization
-from src.pokemon_analysis import calculate_team_kpis, generate_radar, pokemon_info, generate_bar
+from src.pokemon_analysis import calculate_team_kpis, generate_radar, pokemon_info, generate_bar, generate_team_summary
 
 app = dash.Dash(__name__)
 
@@ -102,6 +102,14 @@ def update_team_analysis(selected_rows):
     bar_fig = generate_bar(team_data) #unused bar fig for offensive/defensive type effectiveness
     radar_fig = generate_radar(team_data)
     
+    
+    team_summary = generate_team_summary(team_data)  # Import this function
+    
+    summary_card = html.Div([ #initialize summary card
+        html.H4("Team Analysis", style={'color': '#722ed1'}),
+        html.P(team_summary, style={'lineHeight': '1.5', 'fontSize': '16px'})
+    ], style={'width': '25%', 'padding': '15px', 'borderRadius': '10px', 'boxShadow': '0 2px 8px rgba(0,0,0,0.1)'})
+    
     # Create KPI cards
     kpi_cards = [
         html.Div([
@@ -145,7 +153,7 @@ def update_team_analysis(selected_rows):
                     'color': '#cf1322'
                 }) for type_name in kpis.get('vulnerable_types', [])
             ])
-        ], style={'width': '30%', 'padding': '15px', 'borderRadius': '10px', 'boxShadow': '0 2px 8px rgba(0,0,0,0.1)'}),
+        ], style={'width': '25%', 'padding': '15px', 'borderRadius': '10px', 'boxShadow': '0 2px 8px rgba(0,0,0,0.1)'}),
         
         # Second card: offensive gaps
         html.Div([
@@ -161,7 +169,7 @@ def update_team_analysis(selected_rows):
                     'color': '#d46b08'
                 }) for type_name in kpis.get('offensive_gaps', [])
             ])
-        ], style={'width': '30%', 'padding': '15px', 'borderRadius': '10px', 'boxShadow': '0 2px 8px rgba(0,0,0,0.1)'}),
+        ], style={'width': '25%', 'padding': '15px', 'borderRadius': '10px', 'boxShadow': '0 2px 8px rgba(0,0,0,0.1)'}),
         
         # Third card: recommended types
         html.Div([
@@ -197,7 +205,8 @@ def update_team_analysis(selected_rows):
                     ])
                 ])
             ])
-        ], style={'width': '30%', 'padding': '15px', 'borderRadius': '10px', 'boxShadow': '0 2px 8px rgba(0,0,0,0.1)'})
+        ], style={'width': '25%', 'padding': '15px', 'borderRadius': '10px', 'boxShadow': '0 2px 8px rgba(0,0,0,0.1)'}),
+        summary_card,
         ], style={'display': 'flex', 'justifyContent': 'space-between', 'marginTop': '20px'})
     
     return radar_fig, kpi_cards, recommendation_cards

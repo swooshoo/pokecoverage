@@ -1,10 +1,3 @@
-"""
-Pokemon Team Analysis Module
-
-This module provides comprehensive functionality for Pokemon team analysis, including 
-type effectiveness calculations, team metrics, and visualization tools.
-"""
-
 import csv
 import pandas as pd
 import numpy as np
@@ -112,7 +105,6 @@ class PokemonData:
             return None, f"Error: '{pokemon_csv_path}' not found. Please make sure the file is in the correct directory.", None, None
         except ValueError:
             return None, "Error: Invalid Pokédex number format. Please enter a number.", None, None
-
 
 class TeamAnalysis:
     """Class for analyzing Pokemon team composition and effectiveness."""
@@ -378,6 +370,78 @@ class TeamAnalysis:
             'defensive_recommendations': defensive_recommendations,
             'offensive_recommendations': offensive_recommendations
         }
+        
+    @staticmethod
+    def generate_team_summary(team_data, types_csv_path="types.csv"):
+        """
+        Generate a concise 2-3 sentence summary of the team's strengths and weaknesses.
+        
+        Args:
+            team_data: List of dictionaries with Pokémon data
+            types_csv_path: Path to the types CSV file (defaults to "types.csv")
+            
+        Returns:
+            str: A 2-3 sentence summary analyzing the team
+        """
+        kpis = TeamAnalysis.calculate_team_kpis(team_data, types_csv_path)
+        
+        # Get key metrics for summary
+        defensive_coverage = kpis['team_coverage_score']
+        defensive_holes = kpis['defensive_holes']
+        type_coverage = kpis['type_coverage_index']
+        stab_diversity = kpis['stab_diversity']
+        vulnerable_types = kpis.get('vulnerable_types', [])
+        offensive_gaps = kpis.get('offensive_gaps', [])
+        
+        # Generate team composition string
+        pokemon_names = [p.get('pokemon', 'Unknown') for p in team_data]
+        team_size = len(pokemon_names)
+        
+        # Analyze team strength
+        strength_level = ""
+        if defensive_coverage > 75 and type_coverage > 75:
+            strength_level = "very balanced"
+        elif defensive_coverage > 60 and type_coverage > 60:
+            strength_level = "well-rounded"
+        elif defensive_coverage > 50 and type_coverage > 50:
+            strength_level = "decent"
+        else:
+            strength_level = "somewhat unbalanced"
+        
+        # Generate primary weakness statement
+        weakness_statement = ""
+        if vulnerable_types:
+            weakness_statement = f"particularly vulnerable to {', '.join(vulnerable_types[:2])} attacks"
+        else:
+            weakness_statement = "without any major type vulnerabilities"
+        
+        # Generate offensive statement
+        offensive_statement = ""
+        if offensive_gaps:
+            offensive_statement = f"struggles against {', '.join(offensive_gaps[:2])} types"
+        else:
+            offensive_statement = "has good offensive coverage across types"
+        
+        # Generate improvement suggestion
+        improvement = ""
+        if stab_diversity < 5 and team_size >= 4:
+            improvement = f"Consider adding more type diversity (currently using {stab_diversity} types)."
+        elif defensive_holes > 2:
+            def_types = ', '.join(kpis.get('defensive_recommendations', [])[:2])
+            improvement = f"Adding {def_types} types would improve your defensive coverage."
+        elif offensive_gaps:
+            off_types = ', '.join(kpis.get('offensive_recommendations', [])[:2])
+            improvement = f"Adding {off_types} types would enhance your offensive capabilities."
+        
+        # Create the summary
+        if team_size <= 3:
+            summary = (f"Your small team of {team_size} Pokémon is {strength_level}, but would benefit from adding more members. "
+                    f"Currently, it's {weakness_statement} and {offensive_statement}. {improvement}")
+        else:
+            summary = (f"Your team of {team_size} Pokémon is {strength_level}, {weakness_statement}. "
+                    f"Offensively, it {offensive_statement}. {improvement}")
+        
+        return summary
 
 
 class TeamVisualization:
@@ -501,32 +565,28 @@ class TeamVisualization:
         
         return fig
 
-
 # Convenience functions for backwards compatibility
 
 def pokemon_info(pokedex_number, pokemon_csv_path="151pokemon.csv"):
-    """Backwards compatibility wrapper for PokemonData.get_pokemon_info"""
     return PokemonData.get_pokemon_info(pokedex_number, pokemon_csv_path)
 
 def calculate_type_effectiveness(team_data, types_csv_path="types.csv"):
-    """Backwards compatibility wrapper for TeamAnalysis.calculate_type_effectiveness"""
     return TeamAnalysis.calculate_type_effectiveness(team_data, types_csv_path)
 
 def calculate_team_kpis(team_data, types_csv_path="types.csv"):
-    """Backwards compatibility wrapper for TeamAnalysis.calculate_team_kpis"""
     return TeamAnalysis.calculate_team_kpis(team_data, types_csv_path)
 
 def recommend_types_for_defense(vulnerable_types, defensive_metrics, types_csv_path="types.csv"):
-    """Backwards compatibility wrapper for TeamAnalysis.recommend_types_for_defense"""
     return TeamAnalysis.recommend_types_for_defense(vulnerable_types, defensive_metrics, types_csv_path)
 
 def recommend_types_for_offense(offensive_gaps, offensive_metrics, types_csv_path="types.csv"):
-    """Backwards compatibility wrapper for TeamAnalysis.recommend_types_for_offense"""
     return TeamAnalysis.recommend_types_for_offense(offensive_gaps, offensive_metrics, types_csv_path)
 
 def generate_radar(team_data, types_csv_path="types.csv"):
-    """Backwards compatibility wrapper for TeamVisualization.generate_radar_chart"""
     return TeamVisualization.generate_radar_chart(team_data, types_csv_path)
 
 def generate_bar(team_data, types_csv_path = "types.csv"):
     return TeamVisualization.generate_bar_chart(team_data,types_csv_path="types.csv")
+
+def generate_team_summary(team_data, types_csv_path="types.csv"):
+    return TeamAnalysis.generate_team_summary(team_data, types_csv_path)
