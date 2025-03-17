@@ -62,6 +62,18 @@ app.layout = html.Div([
     ]),
     
     html.Div([
+        html.H3("Selected Team", style={'textAlign': 'center'}),
+        html.Div(id="selected-pokemon-display", style={
+            'display': 'flex', 
+            'flexWrap': 'wrap',
+            'justifyContent': 'center',
+            'gap': '10px',
+            'marginTop': '10px'
+        })
+    ], style={'width': '100%', 'marginTop': '20px', 'marginBottom': '20px'}),
+    
+    
+    html.Div([
         html.H3("Team Performance Metrics", style={'textAlign': 'center'}),
         html.Div(id="team-kpi-display", style={'display': 'flex', 'justifyContent': 'space-around', 'marginTop': '20px'})
     ], style={'marginTop': '20px'}),
@@ -231,6 +243,74 @@ def display_pokemon_info(pokedex_number):
         info_output, _ = get_pokemon_data(int(pokedex_number))
         return [html.Div([html.Pre(info_output)])]
     return ["Enter a valid Pokémon Pokédex number."]
+
+@app.callback(
+    Output("selected-pokemon-display", "children"),
+    [Input("row-selection-checkbox-header-filtered-only", "selectedRows")]
+)
+def update_selected_pokemon_display(selected_rows):
+    if not selected_rows or len(selected_rows) == 0:
+        return html.Div("No Pokémon selected yet. Select up to 6 Pokémon for your team.", 
+                       style={'textAlign': 'center', 'color': '#999'})
+    
+    team_data = selected_rows[:6]  # Limit to 6 Pokémon
+    
+    pokemon_cards = []
+    for pokemon in team_data:
+        # Create a card for each selected Pokémon
+        pokemon_number = int(pokemon.get('pokedex', 0))
+        pokemon_name = pokemon.get('pokemon', 'Unknown')
+        type1 = pokemon.get('type1', '')
+        type2 = pokemon.get('type2', '')
+        
+        # Get type colors
+        type_colors = {
+            'Normal': '#A8A878', 'Fire': '#F08030', 'Water': '#6890F0', 'Electric': '#F8D030',
+            'Grass': '#78C850', 'Ice': '#98D8D8', 'Fighting': '#C03028', 'Poison': '#A040A0',
+            'Ground': '#E0C068', 'Flying': '#A890F0', 'Psychic': '#F85888', 'Bug': '#A8B820',
+            'Rock': '#B8A038', 'Ghost': '#705898', 'Dragon': '#7038F8', 'Dark': '#705848',
+            'Steel': '#B8B8D0', 'Fairy': '#EE99AC'
+        }
+        
+        type1_color = type_colors.get(type1, '#AAAAAA')
+        type2_color = type_colors.get(type2, '#AAAAAA')
+        
+        # Sprite URL (using PokeAPI sprites)
+        sprite_url = f"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{pokemon_number}.png"
+        
+        card = html.Div([
+            html.Img(src=sprite_url, style={'width': '96px', 'height': '96px'}),
+            html.Div(pokemon_name, style={'fontWeight': 'bold', 'marginTop': '5px'}),
+            html.Div([
+                html.Span(type1, style={
+                    'backgroundColor': type1_color,
+                    'color': 'white',
+                    'padding': '2px 8px',
+                    'borderRadius': '10px',
+                    'fontSize': '12px',
+                    'marginRight': '5px' if type2 else '0px'
+                }),
+                html.Span(type2, style={
+                    'backgroundColor': type2_color,
+                    'color': 'white',
+                    'padding': '2px 8px',
+                    'borderRadius': '10px',
+                    'fontSize': '12px',
+                    'display': 'inline-block' if type2 else 'none'
+                })
+            ], style={'marginTop': '5px'})
+        ], style={
+            'width': '120px',
+            'textAlign': 'center',
+            'padding': '10px',
+            'backgroundColor': 'white',
+            'borderRadius': '10px',
+            'boxShadow': '0 2px 5px rgba(0,0,0,0.1)'
+        })
+        
+        pokemon_cards.append(card)
+    
+    return pokemon_cards
 
 if __name__ == "__main__":
     app.run_server(debug=True)
