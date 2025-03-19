@@ -6,6 +6,8 @@ from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
 
+from dash import ALL, MATCH, Input, Output, State, callback_context 
+
 from src.pokemon_analysis import PokemonData, TeamAnalysis, TeamVisualization
 from src.pokemon_analysis import calculate_team_kpis, generate_radar, pokemon_info, generate_bar, generate_team_summary
 
@@ -51,13 +53,13 @@ app.layout = html.Div([
                 defaultColDef={"filter": True},
                 dashGridOptions={"rowSelection": "multiple", "animateRows": False, "rowMultiSelectWithClick" : True},
                 rowStyle= {"cursor": "pointer"},
-                style={'height': '450px', 'width': '100%'}
+                style={'height': '350px', 'width': '100%'}
             ),
         ], style={'width': '48%', 'display': 'inline-block', 'verticalAlign': 'top'}),
         
         html.Div([
             html.H3("Team Type Effectiveness"),
-            dcc.Graph(id="radar-chart", style={'height': '450px'}),
+            dcc.Graph(id="radar-chart", style={'height': '350px'}),
         ], style={'width': '48%', 'float': 'right', 'display': 'inline-block'}),
     ]),
     
@@ -256,7 +258,7 @@ def update_selected_pokemon_display(selected_rows):
     team_data = selected_rows[:6]  # Limit to 6 Pokémon
     
     pokemon_cards = []
-    for pokemon in team_data:
+    for i, pokemon in enumerate(team_data):
         # Create a card for each selected Pokémon
         pokemon_number = int(pokemon.get('pokedex', 0))
         pokemon_name = pokemon.get('pokemon', 'Unknown')
@@ -278,7 +280,31 @@ def update_selected_pokemon_display(selected_rows):
         # Sprite URL (using PokeAPI sprites)
         sprite_url = f"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{pokemon_number}.png"
         
+        # Create a delete button with a unique ID based on pokemon index
+        delete_button = html.Button(
+            "✕", 
+            id={'type': 'delete-button', 'index': i},
+            style={
+                'position': 'absolute',
+                'top': '5px',
+                'right': '5px',
+                'backgroundColor': '#ff4d4f',
+                'color': 'white',
+                'border': 'none',
+                'borderRadius': '50%',
+                'width': '24px',
+                'height': '24px',
+                'cursor': 'pointer',
+                'fontSize': '12px',
+                'display': 'flex',
+                'justifyContent': 'center',
+                'alignItems': 'center',
+                'padding': '0',
+            }
+        )
+        
         card = html.Div([
+            delete_button,
             html.Img(src=sprite_url, style={'width': '96px', 'height': '96px'}),
             html.Div(pokemon_name, style={'fontWeight': 'bold', 'marginTop': '5px'}),
             html.Div([
@@ -305,12 +331,43 @@ def update_selected_pokemon_display(selected_rows):
             'padding': '10px',
             'backgroundColor': 'white',
             'borderRadius': '10px',
-            'boxShadow': '0 2px 5px rgba(0,0,0,0.1)'
+            'boxShadow': '0 2px 5px rgba(0,0,0,0.1)',
+            'position': 'relative'  # Added for absolute positioning of the delete button
         })
         
         pokemon_cards.append(card)
     
     return pokemon_cards
+
+@app.callback(
+    Output("row-selection-checkbox-header-filtered-only", "selectedRows"),
+    [Input({'type': 'delete-button', 'index': ALL}, 'n_clicks')],
+    [State("row-selection-checkbox-header-filtered-only", "selectedRows")]
+)
+def delete_pokemon(n_clicks, selected_rows):
+    # Check if any button was clicked
+    if not any(n_clicks) or not selected_rows:
+        return dash.no_update
+    
+    # Find which button was clicked
+    ctx = callback_context
+    if not ctx.triggered:
+        return dash.no_update
+    
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    try:
+        # Parse the JSON string to get the index
+        import json
+        button_data = json.loads(button_id)
+        index_to_remove = button_data['index']
+        
+        # Remove the pokemon at the specified index
+        if 0 <= index_to_remove < len(selected_rows):
+            selected_rows.pop(index_to_remove)
+            
+        return selected_rows
+    except:
+        return dash.no_update
 
 if __name__ == "__main__":
     app.run_server(debug=True)
