@@ -17,19 +17,19 @@ from ollama import chat, ChatResponse
 from src.pokemon_analysis import PokemonData, TeamAnalysis, TeamVisualization
 from src.pokemon_analysis import calculate_team_kpis, generate_radar, pokemon_info, generate_bar, generate_team_summary
 
+# COMPLETE REPLACEMENT FOR YOUR PokemonTeamChatAssistant CLASS
+
 class PokemonTeamChatAssistant:
     """
-    Optimized Conversational Pokemon Team Assistant - responds to specific questions
+    Fast Hybrid Pokemon Team Assistant - Instant calculations + Optional LLM
     """
     
     def __init__(self, pokemon_csv_path="151pokemon.csv", types_csv_path="types.csv"):
-        """Initialize the chat assistant"""
+        """Initialize with same data but optimized for speed"""
         self.pokemon_df = pd.read_csv(pokemon_csv_path)
         self.types_df = pd.read_csv(types_csv_path)
         self.model_name = 'deepseek-r1'
         self.type_chart = self._load_type_chart()
-        
-        # Chat history storage
         self.chat_history = []
         
     def _load_type_chart(self) -> Dict:
@@ -49,18 +49,276 @@ class PokemonTeamChatAssistant:
             
         return type_chart
     
+    # ========================================================================
+    # INSTANT RESPONSE FUNCTIONS (No LLM - <1 second responses)
+    # ========================================================================
+    
+    def get_instant_analysis(self, current_team: List[Dict]) -> str:
+        """Instant team analysis using pure calculations"""
+        if not current_team:
+            return "No Pokemon selected. Choose some Pokemon to analyze!"
+        
+        # Quick type analysis
+        team_types = set()
+        vulnerabilities = {}
+        resistances = {}
+        offensive_coverage = set()
+        
+        for pokemon in current_team:
+            type1 = pokemon.get('type1', '')
+            type2 = pokemon.get('type2', '')
+            
+            # Track team types
+            if type1: team_types.add(type1)
+            if type2 and type2 != '': team_types.add(type2)
+            
+            # Calculate what this Pokemon can hit effectively
+            for defending_type in self.type_chart.keys():
+                eff1 = self.type_chart.get(type1, {}).get(defending_type, 1.0) if type1 else 1.0
+                eff2 = self.type_chart.get(type2, {}).get(defending_type, 1.0) if type2 and type2 != '' else 1.0
+                
+                if max(eff1, eff2) >= 2.0:
+                    offensive_coverage.add(defending_type)
+            
+            # Calculate what threatens this Pokemon
+            for attacking_type in self.type_chart.keys():
+                eff1 = self.type_chart.get(attacking_type, {}).get(type1, 1.0) if type1 else 1.0
+                eff2 = self.type_chart.get(attacking_type, {}).get(type2, 1.0) if type2 and type2 != '' else 1.0
+                
+                total_eff = eff1 * eff2
+                
+                if total_eff >= 2.0:
+                    vulnerabilities[attacking_type] = vulnerabilities.get(attacking_type, 0) + 1
+                elif total_eff <= 0.5:
+                    resistances[attacking_type] = resistances.get(attacking_type, 0) + 1
+        
+        # Generate instant summary
+        team_size = len(current_team)
+        type_diversity = len(team_types)
+        
+        # Find main threats (types that threaten 2+ Pokemon)
+        main_threats = [t for t, count in vulnerabilities.items() if count >= 2][:3]
+        
+        # Find coverage gaps
+        all_types = set(self.type_chart.keys())
+        coverage_gaps = list(all_types - offensive_coverage)[:3]
+        
+        # Create response
+        summary = f"**Team Analysis ({team_size} Pokemon, {type_diversity} types):**\n\n"
+        
+        if main_threats:
+            summary += f"🛡️ **Main Threats:** {', '.join(main_threats)} (threaten multiple team members)\n"
+        else:
+            summary += f"🛡️ **Defense:** No major vulnerabilities detected\n"
+        
+        if coverage_gaps:
+            summary += f"⚔️ **Coverage Gaps:** Struggle against {', '.join(coverage_gaps)}\n"
+        else:
+            summary += f"⚔️ **Offense:** Good coverage across all types\n"
+        
+        if len(team_types) < 4 and team_size >= 3:
+            summary += f"📈 **Suggestion:** Add more type diversity (currently {type_diversity} types)\n"
+        
+        summary += f"\n💡 Ask me detailed questions for more insights!"
+        
+        return summary
+    
+    def get_instant_weaknesses(self, current_team: List[Dict]) -> str:
+        """Instant weakness analysis"""
+        if not current_team:
+            return "Select Pokemon first to see what types threaten your team!"
+        
+        vulnerabilities = {}
+        
+        for pokemon in current_team:
+            name = pokemon.get('pokemon', 'Unknown')
+            type1 = pokemon.get('type1', '')
+            type2 = pokemon.get('type2', '')
+            
+            for attacking_type in self.type_chart.keys():
+                eff1 = self.type_chart.get(attacking_type, {}).get(type1, 1.0) if type1 else 1.0
+                eff2 = self.type_chart.get(attacking_type, {}).get(type2, 1.0) if type2 and type2 != '' else 1.0
+                
+                total_eff = eff1 * eff2
+                
+                if total_eff >= 2.0:
+                    if attacking_type not in vulnerabilities:
+                        vulnerabilities[attacking_type] = []
+                    multiplier = "4x" if total_eff >= 4.0 else "2x"
+                    vulnerabilities[attacking_type].append(f"{name} ({multiplier})")
+        
+        if not vulnerabilities:
+            return "🛡️ **Great defense!** Your team has no major type vulnerabilities."
+        
+        response = "🚨 **Team Vulnerabilities:**\n\n"
+        
+        # Sort by number of Pokemon affected
+        sorted_threats = sorted(vulnerabilities.items(), key=lambda x: len(x[1]), reverse=True)
+        
+        for threat_type, affected_pokemon in sorted_threats[:5]:
+            response += f"**{threat_type}:** {', '.join(affected_pokemon)}\n"
+        
+        response += f"\n💡 Consider adding Pokemon that resist these types!"
+        
+        return response
+    
+    def get_instant_suggestions(self, current_team: List[Dict]) -> str:
+        """Instant Pokemon suggestions based on coverage gaps"""
+        if not current_team:
+            return "Since you haven't selected any Pokemon yet, I recommend starting with a **Steel-type**! Steel types resist many attacks (Normal, Flying, Rock, Bug, Steel, Grass, Psychic, Ice, Dragon, Fairy) and are great defensive anchors. Try **Metagross**, **Skarmory**, or **Magnezone**!"
+        
+        if len(current_team) >= 6:
+            return "Your team is full! Try removing a Pokemon first, then I can suggest better type coverage options."
+        
+        # Find coverage gaps
+        offensive_coverage = set()
+        vulnerabilities = {}
+        team_types = set()
+        
+        for pokemon in current_team:
+            type1 = pokemon.get('type1', '')
+            type2 = pokemon.get('type2', '')
+            
+            if type1: team_types.add(type1)
+            if type2 and type2 != '': team_types.add(type2)
+            
+            # What can this Pokemon hit effectively?
+            for defending_type in self.type_chart.keys():
+                eff1 = self.type_chart.get(type1, {}).get(defending_type, 1.0) if type1 else 1.0
+                eff2 = self.type_chart.get(type2, {}).get(defending_type, 1.0) if type2 and type2 != '' else 1.0
+                
+                if max(eff1, eff2) >= 2.0:
+                    offensive_coverage.add(defending_type)
+            
+            # What threatens this Pokemon?
+            for attacking_type in self.type_chart.keys():
+                eff1 = self.type_chart.get(attacking_type, {}).get(type1, 1.0) if type1 else 1.0
+                eff2 = self.type_chart.get(attacking_type, {}).get(type2, 1.0) if type2 and type2 != '' else 1.0
+                
+                if eff1 * eff2 >= 2.0:
+                    vulnerabilities[attacking_type] = vulnerabilities.get(attacking_type, 0) + 1
+        
+        # Find gaps and threats
+        all_types = set(self.type_chart.keys())
+        coverage_gaps = list(all_types - offensive_coverage)
+        main_threats = [t for t, count in vulnerabilities.items() if count >= 2]
+        
+        # Suggest types that help
+        suggestions = []
+        
+        # Suggest types that cover offensive gaps
+        if 'Steel' in coverage_gaps and 'Fighting' not in team_types:
+            suggestions.append("**Fighting-type** (hits Steel super effectively)")
+        
+        if 'Water' in coverage_gaps and 'Grass' not in team_types:
+            suggestions.append("**Grass-type** (hits Water super effectively)")
+        
+        if 'Flying' in coverage_gaps and 'Electric' not in team_types:
+            suggestions.append("**Electric-type** (hits Flying super effectively)")
+        
+        # Suggest types that resist main threats
+        if 'Rock' in main_threats and 'Steel' not in team_types:
+            suggestions.append("**Steel-type** (resists Rock attacks)")
+        
+        if 'Fire' in main_threats and 'Water' not in team_types:
+            suggestions.append("**Water-type** (resists Fire attacks)")
+        
+        if not suggestions:
+            # Default suggestions if no specific gaps found
+            missing_types = ['Electric', 'Steel', 'Water', 'Fighting'] 
+            for t in missing_types:
+                if t not in team_types:
+                    suggestions.append(f"**{t}-type** (good coverage)")
+                    break
+        
+        response = f"🎯 **Recommended Types for Your Team:**\n\n"
+        response += f"• {suggestions[0] if suggestions else '**Electric-type** (good offensive coverage)'}\n"
+        if len(suggestions) > 1:
+            response += f"• {suggestions[1]}\n"
+        
+        if coverage_gaps:
+            response += f"\n📊 **Coverage Gaps:** {', '.join(coverage_gaps[:3])}"
+        
+        if main_threats:
+            response += f"\n🚨 **Main Threats:** {', '.join(main_threats[:3])}"
+        
+        return response
+    
+    def get_instant_rating(self, current_team: List[Dict]) -> str:
+        """Instant team rating based on coverage metrics"""
+        if not current_team:
+            return "I can't rate an empty team! Add some Pokemon first."
+        
+        # Calculate metrics
+        team_types = set()
+        offensive_coverage = set()
+        vulnerabilities = {}
+        
+        for pokemon in current_team:
+            type1 = pokemon.get('type1', '')
+            type2 = pokemon.get('type2', '')
+            
+            if type1: team_types.add(type1)
+            if type2 and type2 != '': team_types.add(type2)
+            
+            # Offensive coverage
+            for defending_type in self.type_chart.keys():
+                eff1 = self.type_chart.get(type1, {}).get(defending_type, 1.0) if type1 else 1.0
+                eff2 = self.type_chart.get(type2, {}).get(defending_type, 1.0) if type2 and type2 != '' else 1.0
+                
+                if max(eff1, eff2) >= 2.0:
+                    offensive_coverage.add(defending_type)
+            
+            # Defensive vulnerabilities
+            for attacking_type in self.type_chart.keys():
+                eff1 = self.type_chart.get(attacking_type, {}).get(type1, 1.0) if type1 else 1.0
+                eff2 = self.type_chart.get(attacking_type, {}).get(type2, 1.0) if type2 and type2 != '' else 1.0
+                
+                if eff1 * eff2 >= 2.0:
+                    vulnerabilities[attacking_type] = vulnerabilities.get(attacking_type, 0) + 1
+        
+        # Calculate scores
+        type_diversity_score = min(len(team_types) * 2, 10)  # Max 10 for 5+ types
+        offensive_score = min(len(offensive_coverage) * 0.6, 10)  # Max 10 for hitting ~17 types
+        defensive_holes = len([t for t, count in vulnerabilities.items() if count >= 2])
+        defensive_score = max(10 - defensive_holes * 2, 0)  # Lose 2 points per major hole
+        
+        overall_score = (type_diversity_score + offensive_score + defensive_score) / 3
+        
+        # Generate rating
+        rating = f"**Team Rating: {overall_score:.1f}/10**\n\n"
+        rating += f"📊 **Breakdown:**\n"
+        rating += f"• Type Diversity: {type_diversity_score}/10 ({len(team_types)} unique types)\n"
+        rating += f"• Offensive Coverage: {offensive_score:.1f}/10 (hits {len(offensive_coverage)} types effectively)\n"
+        rating += f"• Defensive Balance: {defensive_score}/10 ({defensive_holes} major weaknesses)\n\n"
+        
+        if overall_score >= 8:
+            rating += "🌟 **Excellent team!** Great balance and coverage."
+        elif overall_score >= 6:
+            rating += "👍 **Solid team!** Some room for improvement."
+        elif overall_score >= 4:
+            rating += "⚠️ **Decent team** but needs work on coverage."
+        else:
+            rating += "🔧 **Team needs improvement** - focus on type diversity."
+        
+        return rating
+    
+    # ========================================================================
+    # OPTIONAL LLM FUNCTIONS (For detailed analysis when requested)
+    # ========================================================================
+    
     def ask_deepseek_chat(self, user_question: str, current_team: List[Dict]) -> str:
         """
-        Optimized conversational questions about Pokemon teams - faster responses
+        Optional LLM interaction for detailed questions (still available for text input)
         """
         try:
-            # Prepare shorter team context for faster processing
+            # Shorter context for faster processing
             team_context = self._prepare_short_team_context(current_team)
             
-            # Shorter, more focused system prompt for faster responses
-            system_prompt = f"""You are a Pokemon expert. Current team: {team_context}. 
-            You are only familiar with type coverages (as detailed in types csv), not abilities or moves yet. 
-            Keep responses to 2-3 sentences. Be specific and helpful."""
+            # Shorter system prompt for faster responses
+            system_prompt = f"""You are a Pokemon expert. Current team: {team_context}
+
+Keep responses to 2-3 sentences. Be specific and helpful."""
 
             response: ChatResponse = chat(model=self.model_name, messages=[
                 {'role': 'system', 'content': system_prompt},
@@ -68,28 +326,18 @@ class PokemonTeamChatAssistant:
             ])
             
             response_text = response['message']['content']
-            
-            # Clean up any thinking tags
             clean_response = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL).strip()
-            
-            # Store in chat history
-            self.chat_history.append({
-                'user': user_question,
-                'assistant': clean_response,
-                'team_size': len(current_team)
-            })
             
             return clean_response
             
         except Exception as e:
-            return f"Sorry, I'm having trouble connecting right now. Make sure Ollama is running. Error: {str(e)}"
+            return f"Sorry, I'm having trouble connecting right now. Error: {str(e)}"
     
     def _prepare_short_team_context(self, team_data: List[Dict]) -> str:
-        """Prepare shorter team information for faster processing"""
+        """Prepare shorter team information for faster LLM processing"""
         if not team_data:
             return "No Pokemon selected"
         
-        # Create compact team summary
         pokemon_list = []
         for pokemon in team_data:
             name = pokemon.get('pokemon', 'Unknown')
@@ -103,113 +351,28 @@ class PokemonTeamChatAssistant:
         
         return ", ".join(pokemon_list)
     
+    # ========================================================================
+    # MAIN INTERFACE FUNCTION - INSTANT RESPONSES
+    # ========================================================================
+    
     def get_quick_response(self, question_type: str, current_team: List[Dict]) -> str:
-        """Handle quick question buttons with improved logic"""
+        """Handle quick question buttons with INSTANT responses"""
         
         if question_type == "analyze":
-            if not current_team:
-                return "You don't have any Pokemon selected yet! Choose some Pokemon first, then I can analyze your team composition and strategy."
-            return self.ask_deepseek_chat("Analyze my team's main strengths and weaknesses.", current_team)
+            return self.get_instant_analysis(current_team)
         
         elif question_type == "weaknesses":
-            if not current_team:
-                return "Select some Pokemon first and I'll tell you what types threaten your team!"
-            return self.ask_deepseek_chat("What types threaten my team most?", current_team)
+            return self.get_instant_weaknesses(current_team)
         
         elif question_type == "suggest":
-            if not current_team:
-                # No Pokemon selected - suggest Steel type
-                return "Since you haven't selected any Pokemon yet, I recommend starting with a Steel-type! Steel types resist many attacks and are great defensive anchors. Try Pokemon like Metagross, Skarmory, or Magnezone. Steel types resist Normal, Flying, Rock, Bug, Steel, Grass, Psychic, Ice, Dragon, and Fairy attacks!"
-            elif len(current_team) >= 6:
-                # Full team - suggest replacement for coverage
-                return self.ask_deepseek_chat("My team is full (6 Pokemon). Suggest a Pokemon that could replace one of my current team members to improve type coverage.", current_team)
-            else:
-                # Partial team - suggest addition
-                return self.ask_deepseek_chat("Suggest a good Pokemon to add to my current team that fills gaps in type coverage.", current_team)
+            return self.get_instant_suggestions(current_team)
         
         elif question_type == "rate":
-            if not current_team:
-                return "I can't rate an empty team! Add some Pokemon first, then I'll give you an honest 1-10 rating with specific feedback."
-            return self.ask_deepseek_chat("Rate my team 1-10 with brief reasoning.", current_team)
+            return self.get_instant_rating(current_team)
         
         return "I'm not sure how to help with that. Try asking me a specific question!"
-    
-    def get_fast_analysis(self, current_team: List[Dict]) -> str:
-        """
-        Super fast analysis using type chart calculations instead of LLM
-        Use this for instant feedback, then offer detailed LLM analysis
-        """
-        if not current_team:
-            return "No Pokemon selected for analysis."
-        
-        # Quick type analysis without LLM
-        types_present = set()
-        vulnerabilities = {}
-        
-        for pokemon in current_team:
-            type1 = pokemon.get('type1', '')
-            type2 = pokemon.get('type2', '')
-            
-            if type1:
-                types_present.add(type1)
-            if type2 and type2 != '':
-                types_present.add(type2)
-            
-            # Count vulnerabilities
-            for attack_type in self.type_chart:
-                effectiveness1 = self.type_chart.get(attack_type, {}).get(type1, 1.0)
-                effectiveness2 = self.type_chart.get(attack_type, {}).get(type2, 1.0) if type2 else 1.0
-                
-                total_effectiveness = effectiveness1 * effectiveness2
-                
-                if total_effectiveness > 1.0:
-                    vulnerabilities[attack_type] = vulnerabilities.get(attack_type, 0) + 1
-        
-        # Create quick summary
-        team_size = len(current_team)
-        type_diversity = len(types_present)
-        main_weaknesses = [t for t, count in vulnerabilities.items() if count >= 2][:3]
-        
-        summary = f"Quick Analysis: {team_size} Pokemon, {type_diversity} unique types. "
-        
-        if main_weaknesses:
-            summary += f"Main vulnerabilities: {', '.join(main_weaknesses)}. "
-        else:
-            summary += "No major vulnerabilities detected. "
-        
-        summary += "Ask for detailed analysis for more insights!"
-        
-        return summary
 
-# helper function for performance testing
-def test_response_speed():
-    """Test how fast responses are on your system"""
-    import time
-    
-    print("🔍 Testing LLM response speed...")
-    
-    # Test simple question
-    start = time.time()
-    try:
-        response = chat(model='deepseek-r1', messages=[
-            {'role': 'user', 'content': 'What type beats Fire?'}
-        ])
-        end = time.time()
-        print(f"✅ Simple question: {end - start:.1f} seconds")
-        
-        if end - start > 30:
-            print("⚠️  Response is slow. Consider:")
-            print("   - Check if other programs are using CPU/RAM")
-            print("   - Try a smaller model like 'llama2:7b'")
-            print("   - Add more RAM if possible")
-        elif end - start > 15:
-            print("⚠️  Response is moderate. Loading indicators recommended.")
-        else:
-            print("✅ Response speed is good!")
-            
-    except Exception as e:
-        print(f"❌ Test failed: {e}")
-        print("💡 Make sure Ollama is running: 'ollama serve'")
+
 
 app = dash.Dash(__name__)
 
@@ -471,9 +634,10 @@ def update_current_team(selected_rows):
     [Input("chat-send-btn", "n_clicks"),
      Input("chat-input", "n_submit")],
     [State("chat-input", "value"),
-     State("chat-history", "children")]
+     State("chat-history", "children"),
+     State("row-selection-checkbox-header-filtered-only", "selectedRows")]
 )
-def handle_chat_input(send_clicks, input_submit, user_input, chat_history):
+def handle_chat_input(send_clicks, input_submit, user_input, chat_history, selected_rows):
     if not llm_available:
         return chat_history + [create_error_message("Chat Assistant not available")], ""
     
@@ -500,7 +664,8 @@ def handle_chat_input(send_clicks, input_submit, user_input, chat_history):
     
     # Get AI response (this is the slow part)
     try:
-        ai_response = chat_assistant.ask_deepseek_chat(user_input, current_team_data)
+        team_data = selected_rows[:6] if selected_rows else []
+        ai_response = chat_assistant.ask_deepseek_chat(user_input, team_data)
         ai_message = create_ai_message(ai_response)
         
         # Replace loading message with actual response
@@ -519,10 +684,12 @@ def handle_chat_input(send_clicks, input_submit, user_input, chat_history):
      Input("btn-weaknesses", "n_clicks"), 
      Input("btn-suggest-pokemon", "n_clicks"),
      Input("btn-rate-team", "n_clicks")],
-    [State("chat-history", "children")],
+    [State("chat-history", "children"),
+    State("row-selection-checkbox-header-filtered-only", "selectedRows")],
     prevent_initial_call=True
 )
-def handle_quick_buttons(analyze_clicks, weakness_clicks, suggest_clicks, rate_clicks, chat_history):
+def handle_quick_buttons(analyze_clicks, weakness_clicks, suggest_clicks, rate_clicks, chat_history, selected_rows):
+    team_data = selected_rows[:6] if selected_rows else []
     if not llm_available:
         return chat_history
     
@@ -548,7 +715,8 @@ def handle_quick_buttons(analyze_clicks, weakness_clicks, suggest_clicks, rate_c
         
         # Get response (this handles the different suggestion logic)
         try:
-            ai_response = chat_assistant.get_quick_response(question_type, current_team_data)
+            team_data = selected_rows[:6] if selected_rows else []
+            ai_response = chat_assistant.get_quick_response(question_type, team_data)       
             
             # For the suggestion button, we might get instant response or LLM response
             if question_type == "suggest" and (not current_team_data or len(current_team_data) >= 6):
