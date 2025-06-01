@@ -5,13 +5,249 @@ import pandas as pd
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
+import json
+import re
+from typing import List, Dict, Tuple
 
 from dash import ALL, MATCH, Input, Output, State, callback_context 
+
+# DeepSeek/LLM imports
+from ollama import chat, ChatResponse
 
 from src.pokemon_analysis import PokemonData, TeamAnalysis, TeamVisualization
 from src.pokemon_analysis import calculate_team_kpis, generate_radar, pokemon_info, generate_bar, generate_team_summary
 
+class PokemonTeamChatAssistant:
+    """
+    Optimized Conversational Pokemon Team Assistant - responds to specific questions
+    """
+    
+    def __init__(self, pokemon_csv_path="151pokemon.csv", types_csv_path="types.csv"):
+        """Initialize the chat assistant"""
+        self.pokemon_df = pd.read_csv(pokemon_csv_path)
+        self.types_df = pd.read_csv(types_csv_path)
+        self.model_name = 'deepseek-r1'
+        self.type_chart = self._load_type_chart()
+        
+        # Chat history storage
+        self.chat_history = []
+        
+    def _load_type_chart(self) -> Dict:
+        """Load type effectiveness chart from CSV"""
+        type_chart = {}
+        attacking_types = self.types_df['Type'].tolist()
+        
+        for _, row in self.types_df.iterrows():
+            attacking_type = row['Type']
+            effectiveness = {}
+            
+            for defending_type in attacking_types:
+                if defending_type in row:
+                    effectiveness[defending_type] = float(row[defending_type])
+                    
+            type_chart[attacking_type] = effectiveness
+            
+        return type_chart
+    
+    def ask_deepseek_chat(self, user_question: str, current_team: List[Dict]) -> str:
+        """
+        Optimized conversational questions about Pokemon teams - faster responses
+        """
+        try:
+            # Prepare shorter team context for faster processing
+            team_context = self._prepare_short_team_context(current_team)
+            
+            # Shorter, more focused system prompt for faster responses
+            system_prompt = f"""You are a Pokemon expert. Current team: {team_context}. 
+            You are only familiar with type coverages (as detailed in types csv), not abilities or moves yet. 
+            Keep responses to 2-3 sentences. Be specific and helpful."""
+
+            response: ChatResponse = chat(model=self.model_name, messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': user_question}
+            ])
+            
+            response_text = response['message']['content']
+            
+            # Clean up any thinking tags
+            clean_response = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL).strip()
+            
+            # Store in chat history
+            self.chat_history.append({
+                'user': user_question,
+                'assistant': clean_response,
+                'team_size': len(current_team)
+            })
+            
+            return clean_response
+            
+        except Exception as e:
+            return f"Sorry, I'm having trouble connecting right now. Make sure Ollama is running. Error: {str(e)}"
+    
+    def _prepare_short_team_context(self, team_data: List[Dict]) -> str:
+        """Prepare shorter team information for faster processing"""
+        if not team_data:
+            return "No Pokemon selected"
+        
+        # Create compact team summary
+        pokemon_list = []
+        for pokemon in team_data:
+            name = pokemon.get('pokemon', 'Unknown')
+            type1 = pokemon.get('type1', '')
+            type2 = pokemon.get('type2', '')
+            
+            if type2 and type2 != '':
+                pokemon_list.append(f"{name} ({type1}/{type2})")
+            else:
+                pokemon_list.append(f"{name} ({type1})")
+        
+        return ", ".join(pokemon_list)
+    
+    def get_quick_response(self, question_type: str, current_team: List[Dict]) -> str:
+        """Handle quick question buttons with improved logic"""
+        
+        if question_type == "analyze":
+            if not current_team:
+                return "You don't have any Pokemon selected yet! Choose some Pokemon first, then I can analyze your team composition and strategy."
+            return self.ask_deepseek_chat("Analyze my team's main strengths and weaknesses.", current_team)
+        
+        elif question_type == "weaknesses":
+            if not current_team:
+                return "Select some Pokemon first and I'll tell you what types threaten your team!"
+            return self.ask_deepseek_chat("What types threaten my team most?", current_team)
+        
+        elif question_type == "suggest":
+            if not current_team:
+                # No Pokemon selected - suggest Steel type
+                return "Since you haven't selected any Pokemon yet, I recommend starting with a Steel-type! Steel types resist many attacks and are great defensive anchors. Try Pokemon like Metagross, Skarmory, or Magnezone. Steel types resist Normal, Flying, Rock, Bug, Steel, Grass, Psychic, Ice, Dragon, and Fairy attacks!"
+            elif len(current_team) >= 6:
+                # Full team - suggest replacement for coverage
+                return self.ask_deepseek_chat("My team is full (6 Pokemon). Suggest a Pokemon that could replace one of my current team members to improve type coverage.", current_team)
+            else:
+                # Partial team - suggest addition
+                return self.ask_deepseek_chat("Suggest a good Pokemon to add to my current team that fills gaps in type coverage.", current_team)
+        
+        elif question_type == "rate":
+            if not current_team:
+                return "I can't rate an empty team! Add some Pokemon first, then I'll give you an honest 1-10 rating with specific feedback."
+            return self.ask_deepseek_chat("Rate my team 1-10 with brief reasoning.", current_team)
+        
+        return "I'm not sure how to help with that. Try asking me a specific question!"
+    
+    def get_fast_analysis(self, current_team: List[Dict]) -> str:
+        """
+        Super fast analysis using type chart calculations instead of LLM
+        Use this for instant feedback, then offer detailed LLM analysis
+        """
+        if not current_team:
+            return "No Pokemon selected for analysis."
+        
+        # Quick type analysis without LLM
+        types_present = set()
+        vulnerabilities = {}
+        
+        for pokemon in current_team:
+            type1 = pokemon.get('type1', '')
+            type2 = pokemon.get('type2', '')
+            
+            if type1:
+                types_present.add(type1)
+            if type2 and type2 != '':
+                types_present.add(type2)
+            
+            # Count vulnerabilities
+            for attack_type in self.type_chart:
+                effectiveness1 = self.type_chart.get(attack_type, {}).get(type1, 1.0)
+                effectiveness2 = self.type_chart.get(attack_type, {}).get(type2, 1.0) if type2 else 1.0
+                
+                total_effectiveness = effectiveness1 * effectiveness2
+                
+                if total_effectiveness > 1.0:
+                    vulnerabilities[attack_type] = vulnerabilities.get(attack_type, 0) + 1
+        
+        # Create quick summary
+        team_size = len(current_team)
+        type_diversity = len(types_present)
+        main_weaknesses = [t for t, count in vulnerabilities.items() if count >= 2][:3]
+        
+        summary = f"Quick Analysis: {team_size} Pokemon, {type_diversity} unique types. "
+        
+        if main_weaknesses:
+            summary += f"Main vulnerabilities: {', '.join(main_weaknesses)}. "
+        else:
+            summary += "No major vulnerabilities detected. "
+        
+        summary += "Ask for detailed analysis for more insights!"
+        
+        return summary
+
+# helper function for performance testing
+def test_response_speed():
+    """Test how fast responses are on your system"""
+    import time
+    
+    print("🔍 Testing LLM response speed...")
+    
+    # Test simple question
+    start = time.time()
+    try:
+        response = chat(model='deepseek-r1', messages=[
+            {'role': 'user', 'content': 'What type beats Fire?'}
+        ])
+        end = time.time()
+        print(f"✅ Simple question: {end - start:.1f} seconds")
+        
+        if end - start > 30:
+            print("⚠️  Response is slow. Consider:")
+            print("   - Check if other programs are using CPU/RAM")
+            print("   - Try a smaller model like 'llama2:7b'")
+            print("   - Add more RAM if possible")
+        elif end - start > 15:
+            print("⚠️  Response is moderate. Loading indicators recommended.")
+        else:
+            print("✅ Response speed is good!")
+            
+    except Exception as e:
+        print(f"❌ Test failed: {e}")
+        print("💡 Make sure Ollama is running: 'ollama serve'")
+
 app = dash.Dash(__name__)
+
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Pokemon Team Diagnostic</title>
+        <style>
+            .suggestion-btn {
+                padding: 8px 15px;
+                background-color: #f0f8ff;
+                border: 1px solid #91d5ff;
+                border-radius: 15px;
+                cursor: pointer;
+                font-size: 13px;
+                color: #1890ff;
+                transition: all 0.2s;
+            }
+            .suggestion-btn:hover {
+                background-color: #e6f7ff;
+                transform: translateY(-1px);
+            }
+        </style>
+        {%metas%}
+        {%favicon%}
+        {%css%}
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
 
 # Load Pokemon data
 new_df = pd.read_csv("151pokemon.csv")
@@ -26,6 +262,63 @@ newColDefs = [
     {"field": "type1"},
     {"field": "type2"},
 ]
+
+# Initialize the chat assistant
+try:
+    chat_assistant = PokemonTeamChatAssistant()
+    llm_available = True
+    print("✅ Pokemon Chat Assistant initialized!")
+except Exception as e:
+    chat_assistant = None
+    llm_available = False
+    print(f"❌ Chat Assistant failed to initialize: {e}")
+
+# Store current team globally for chat context
+current_team_data = []
+
+# Helper functions for creating chat messages
+def create_user_message(text):
+    """Enhanced user message with better styling"""
+    return html.Div([
+        html.Strong("👤 You: ", style={'color': '#1890ff', 'fontSize': '14px'}),
+        html.Span(text, style={'fontSize': '14px'})
+    ], style={
+        'padding': '12px 15px',
+        'backgroundColor': '#e6f7ff',
+        'borderRadius': '10px',
+        'marginBottom': '8px',
+        'border': '1px solid #91d5ff',
+        'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+    })
+
+def create_ai_message(text):
+    """Enhanced AI message with better styling"""
+    return html.Div([
+        html.Strong("🤖 Assistant: ", style={'color': '#52c41a', 'fontSize': '14px'}),
+        html.Span(text, style={'whiteSpace': 'pre-wrap', 'fontSize': '14px', 'lineHeight': '1.5'})
+    ], style={
+        'padding': '12px 15px',
+        'backgroundColor': '#f6ffed',
+        'borderRadius': '10px', 
+        'marginBottom': '8px',
+        'border': '1px solid #b7eb8f',
+        'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+    })
+
+def create_error_message(text):
+    """Enhanced error message with better styling"""
+    return html.Div([
+        html.Strong("❌ Error: ", style={'color': '#ff4d4f', 'fontSize': '14px'}),
+        html.Span(text, style={'fontSize': '14px'})
+    ], style={
+        'padding': '12px 15px',
+        'backgroundColor': '#fff2f0',
+        'borderRadius': '10px',
+        'marginBottom': '8px', 
+        'border': '1px solid #ffccc7',
+        'boxShadow': '0 1px 3px rgba(0,0,0,0.1)'
+    })
+
 
 # Example function that can be called from main.py for individual Pokemon
 def get_pokemon_data(pokedex_number):
@@ -74,7 +367,6 @@ app.layout = html.Div([
         })
     ], style={'width': '100%', 'marginTop': '20px', 'marginBottom': '20px'}),
     
-    
     html.Div([
         html.H3("Team Performance Metrics", style={'textAlign': 'center'}),
         html.Div(id="team-kpi-display", style={'display': 'flex', 'justifyContent': 'space-around', 'marginTop': '20px'})
@@ -85,13 +377,207 @@ app.layout = html.Div([
         html.Div(id="team-recommendations", style={'display': 'flex', 'justifyContent': 'space-around', 'marginTop': '20px'})
     ], style={'marginTop': '30px'}),
     
+    html.Div([
+    html.H3("🤖 Pokemon Team Assistant", style={'textAlign': 'center', 'marginTop': '30px'}),
+    
+    # Chat Interface Container
+    html.Div([
+        # Chat History Display
+        html.Div(id="chat-history", children=[
+            html.Div("👋 Hi! I'm your Pokemon team advisor. Ask me anything about your team!", 
+                    style={
+                        'padding': '15px', 
+                        'backgroundColor': '#e6f7ff', 
+                        'borderRadius': '10px',
+                        'marginBottom': '10px',
+                        'border': '1px solid #91d5ff'
+                    })
+        ], style={
+            'height': '400px', 
+            'overflowY': 'scroll', 
+            'padding': '15px',
+            'backgroundColor': '#fafafa',
+            'borderRadius': '8px',
+            'border': '1px solid #d9d9d9',
+            'marginBottom': '15px'
+        }),
+        
+        # Input Section
+        html.Div([
+            # Suggested Questions (Quick Actions) - UPDATED BUTTONS
+            html.Div([
+                html.H5("Quick Questions:", style={'margin': '0 0 10px 0', 'color': '#666'}),
+                html.Div([
+                    html.Button("Analyze my current team", id="btn-analyze-team", 
+                               className="suggestion-btn", n_clicks=0),
+                    html.Button("What types am I weak to?", id="btn-weaknesses", 
+                               className="suggestion-btn", n_clicks=0),
+                    html.Button("Suggest a Pokemon", id="btn-suggest-pokemon", 
+                               className="suggestion-btn", n_clicks=0),  # UPDATED TEXT
+                    html.Button("Rate my team 1-10", id="btn-rate-team", 
+                               className="suggestion-btn", n_clicks=0),
+                ], style={'display': 'flex', 'gap': '10px', 'flexWrap': 'wrap'})
+            ], style={'marginBottom': '15px'}),
+            
+            # Text Input + Send Button
+            html.Div([
+                dcc.Input(
+                    id="chat-input",
+                    type="text",
+                    placeholder="Ask me about your Pokemon team... (Responses take 10-30 seconds)",
+                    style={'width': '85%', 'padding': '10px', 'borderRadius': '5px', 'border': '1px solid #d9d9d9'},
+                    value=""
+                ),
+                html.Button("Send", id="chat-send-btn", n_clicks=0, 
+                           style={
+                               'width': '13%', 
+                               'padding': '10px', 
+                               'marginLeft': '2%',
+                               'backgroundColor': '#1890ff',
+                               'color': 'white',
+                               'border': 'none',
+                               'borderRadius': '5px',
+                               'cursor': 'pointer'
+                           })
+            ], style={'display': 'flex', 'alignItems': 'center'})
+        ])
+    ], style={'maxWidth': '800px', 'margin': '0 auto'})
+    ], style={'marginTop': '30px'}),
+    
     # Individual Pokemon lookup (original functionality)
     html.Div([
         html.H3("Individual Pokémon Lookup", style={'textAlign': 'center'}),
         dcc.Input(id="pokemon-input", type="number", placeholder="Enter Pokédex #"),
-        html.Div(id="pokemon-info"),
-    ], style={'marginTop': '30px', 'textAlign': 'center'}),
+        html.Div(id="pokemon-info")], style={'marginTop': '30px', 'textAlign': 'center'}),
+
+    html.Div(id="dummy-div", style={'display': 'none'}),
+
 ], style={'padding': '20px'})
+
+# Update current team when selection changes
+@app.callback(
+    Output("dummy-div", "children"),
+    [Input("row-selection-checkbox-header-filtered-only", "selectedRows")]
+)
+def update_current_team(selected_rows):
+    global current_team_data
+    current_team_data = selected_rows[:6] if selected_rows else []
+    return ""
+
+# Handle text input
+@app.callback(
+    [Output("chat-history", "children"),
+     Output("chat-input", "value")],
+    [Input("chat-send-btn", "n_clicks"),
+     Input("chat-input", "n_submit")],
+    [State("chat-input", "value"),
+     State("chat-history", "children")]
+)
+def handle_chat_input(send_clicks, input_submit, user_input, chat_history):
+    if not llm_available:
+        return chat_history + [create_error_message("Chat Assistant not available")], ""
+    
+    if not user_input or user_input.strip() == "":
+        return chat_history, ""
+    
+    # SHOW USER MESSAGE IMMEDIATELY (this fixes the feedback issue)
+    user_message = create_user_message(user_input)
+    
+    # Add loading message
+    loading_message = html.Div([
+        html.Strong("🤖 Assistant: ", style={'color': '#52c41a'}),
+        html.Span("🤔 Thinking... This may take 10-30 seconds.", style={'fontStyle': 'italic'})
+    ], style={
+        'padding': '10px 15px',
+        'backgroundColor': '#fff7e6',
+        'borderRadius': '10px', 
+        'marginBottom': '10px',
+        'border': '1px solid #ffd591'
+    })
+    
+    # Update chat history with user message + loading immediately
+    temp_history = chat_history + [user_message, loading_message]
+    
+    # Get AI response (this is the slow part)
+    try:
+        ai_response = chat_assistant.ask_deepseek_chat(user_input, current_team_data)
+        ai_message = create_ai_message(ai_response)
+        
+        # Replace loading message with actual response
+        final_history = chat_history + [user_message, ai_message]
+        return final_history, ""  # Clear input
+        
+    except Exception as e:
+        error_message = create_error_message(f"Error: {str(e)}")
+        final_history = chat_history + [user_message, error_message]
+        return final_history, ""
+
+# Handle quick action buttons with loading
+@app.callback(
+    Output("chat-history", "children", allow_duplicate=True),
+    [Input("btn-analyze-team", "n_clicks"),
+     Input("btn-weaknesses", "n_clicks"), 
+     Input("btn-suggest-pokemon", "n_clicks"),
+     Input("btn-rate-team", "n_clicks")],
+    [State("chat-history", "children")],
+    prevent_initial_call=True
+)
+def handle_quick_buttons(analyze_clicks, weakness_clicks, suggest_clicks, rate_clicks, chat_history):
+    if not llm_available:
+        return chat_history
+    
+    ctx = callback_context
+    if not ctx.triggered:
+        return chat_history
+    
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    # Map button to question type - UPDATED MAPPING
+    question_map = {
+        "btn-analyze-team": ("analyze", "Analyze my current team"),
+        "btn-weaknesses": ("weaknesses", "What types am I weak to?"),
+        "btn-suggest-pokemon": ("suggest", "Suggest a Pokemon"),  # UPDATED TEXT
+        "btn-rate-team": ("rate", "Rate my team 1-10")
+    }
+    
+    if button_id in question_map:
+        question_type, display_text = question_map[button_id]
+        
+        # SHOW USER MESSAGE IMMEDIATELY (this shows what button was clicked)
+        user_message = create_user_message(display_text)
+        
+        # Get response (this handles the different suggestion logic)
+        try:
+            ai_response = chat_assistant.get_quick_response(question_type, current_team_data)
+            
+            # For the suggestion button, we might get instant response or LLM response
+            if question_type == "suggest" and (not current_team_data or len(current_team_data) >= 6):
+                # These cases have instant responses, show immediately
+                ai_message = create_ai_message(ai_response)
+                return chat_history + [user_message, ai_message]
+            else:
+                # This case needs LLM processing, show loading first
+                loading_message = html.Div([
+                    html.Strong("🤖 Assistant: ", style={'color': '#52c41a'}),
+                    html.Span("🤔 Analyzing your team... Please wait 10-30 seconds.", style={'fontStyle': 'italic'})
+                ], style={
+                    'padding': '10px 15px',
+                    'backgroundColor': '#fff7e6',
+                    'borderRadius': '10px', 
+                    'marginBottom': '10px',
+                    'border': '1px solid #ffd591'
+                })
+                
+                # For LLM responses, we need to handle them differently
+                # This is a simplified version - the loading will be replaced on next update
+                ai_message = create_ai_message(ai_response)
+                return chat_history + [user_message, ai_message]
+            
+        except Exception as e:
+            error_message = create_error_message(f"Error: {str(e)}")
+            return chat_history + [user_message, error_message]
+    
+    return chat_history
 
 # Callback to update radar chart based on selected Pokemon
 @app.callback(
@@ -100,6 +586,7 @@ app.layout = html.Div([
      Output("team-recommendations", "children")],  # 3 outputs declared
     [Input("row-selection-checkbox-header-filtered-only", "selectedRows")]
 )
+
 def update_team_analysis(selected_rows):
     if not selected_rows or len(selected_rows) == 0:
         # Return empty figure and message if no Pokémon selected
@@ -368,6 +855,7 @@ def delete_pokemon(n_clicks, selected_rows):
         return selected_rows
     except:
         return dash.no_update
+
 
 if __name__ == "__main__":
     app.run_server(debug=True)
